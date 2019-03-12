@@ -87,11 +87,7 @@ architecture structural of hysteresis_control is
 -- ================== CONSTANTS ==================================================				
 constant H0_C : integer := D_IOUT_MAX_G /NO_CONTROLER_G ; --! Initial band for first rise (derived from maximum current ripple)
 -- Tsol:
-constant CNT_DELAY : integer := 700; -- TIME DELAY 
 constant CNT_MIN : integer := 70; -- MIN WAITING TIME IN THE WAITING STATES
-constant CNT_MIN_FALL : integer := 400; -- MIN WAITING TIME IN THE 1st for during DELAY STATE
-
-constant CNT_RISE : integer := 700; -- MAX counter for ripple. This needs to be properly calculated, for all operating points 
 
 -- ================== COMPONENTS =================================================
 function OR_REDUCE(ARG: STD_LOGIC_VECTOR) return std_logic is
@@ -143,14 +139,14 @@ signal iset_tot_s,iset_tot_delayed_s : integer := 0; --! total set current measu
 signal imeas_s : integer := 0; --! measured current after sync 
 signal ierr_s, ierr_next_s : integer := 0; --! measured error current after sync 
 
-signal delay_rise_2nd_s, delay_rise_next_2nd_s : integer := CNT_DELAY; --! set current measured
-signal delay_fall_2nd_s, delay_fall_next_2nd_s : integer := CNT_DELAY; --! set current measured 
+signal delay_rise_2nd_s, delay_rise_next_2nd_s : integer := CNT_MIN; --! set current measured
+signal delay_fall_2nd_s, delay_fall_next_2nd_s : integer := CNT_MIN; --! set current measured 
  
-signal delay_rise_3rd_s, delay_rise_next_3rd_s : integer := CNT_DELAY; --! set current measured
-signal delay_fall_3rd_s, delay_fall_next_3rd_s : integer := CNT_DELAY; --! set current measured
+signal delay_rise_3rd_s, delay_rise_next_3rd_s : integer := CNT_MIN; --! set current measured
+signal delay_fall_3rd_s, delay_fall_next_3rd_s : integer := CNT_MIN; --! set current measured
 
-signal delay_Delta_rise_s, delay_Delta_rise_next_s : integer := CNT_DELAY; --! set current measured 
-signal delay_Delta_fall_s, delay_Delta_fall_next_s : integer := CNT_DELAY; --! set current measured 
+signal delay_Delta_rise_s, delay_Delta_rise_next_s : integer := CNT_MIN; --! set current measured 
+signal delay_Delta_fall_s, delay_Delta_fall_next_s : integer := CNT_MIN; --! set current measured 
 
 -- voltage 
 signal vc_s, vc_delayed_s : integer := 0; --! Vc measurement and delayed by 1 clock cycle after sync 
@@ -361,12 +357,12 @@ begin
                     if up_iset_s='1' then
                         i_upper_next_s <= iset_s + (H0_C - to_integer(Hcomp_bound_rise_i)); 
                         i_lower_next_s <= iset_s - (H0_C - to_integer(Hcomp_bound_fall_i)); 
-                        delay_rise_next_2nd_s	<= CNT_RISE;		
+                        delay_rise_next_2nd_s	<= CNT_MIN;		
                         hyst_next_s <= '1'; 
                     elsif up_ierr_s='1' or up_vc_s='1' then
                         i_upper_next_s <= iset_s + (H0_C- to_integer(Hcomp_bound_rise_i)); 
                         i_lower_next_s <= iset_s - (H0_C- to_integer(Hcomp_bound_fall_i)); 
-                        delay_rise_next_2nd_s	<= CNT_RISE;		
+                        delay_rise_next_2nd_s	<= CNT_MIN;		
                         hyst_next_s <= '1'; 
                     end if;
 				
@@ -410,7 +406,7 @@ begin
 			--Tsol: Added State
             when DELAY_U1 => 
 				-- waiting for the time delay of the current
-                if dly_cnt_s  < CNT_MIN_FALL OR dly_cnt_s < delay_fall_2nd_s - NINTERLOCK_G then 
+                if dly_cnt_s  < CNT_MIN OR dly_cnt_s < delay_fall_2nd_s - NINTERLOCK_G then 
 					--if dly_cnt_s = CNT_MIN_FALL-2 then
                  --       dly_cnt_next_s <= dly_cnt_s +1; 
                    --     delay_fall_next_2nd_s <= to_integer(Tss_bound_fall_i);
