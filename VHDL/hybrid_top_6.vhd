@@ -49,11 +49,14 @@ entity hybrid_top is
 				--KixTs_G				: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 6 ; --!  Total number of controler used (slaves + master)
-				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (25 A) for entering hysteresis mode 
-				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
+				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (10 A) for entering hysteresis mode 
+				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (40 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G		: integer := 20*(2**5); --! Maximum current ripple after first rise (here 20A) 
-				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "011"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
+				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "001"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
+				Hadj_Rise_1st_G      : integer := 15*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
+                Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
+                DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  		
 				N_CYCLE_REST_G		: integer := 1; --! Number of cycles controller stays in Hysterssis after phaseshift 
 				-- Variable L points
 				L1_G				: real 	  := 0.00025;--0.00013; --! Inductance [H] at point 1 
@@ -85,7 +88,9 @@ entity hybrid_top is
 		i_lower_o		: out array_signed16(NO_CONTROLER_G-1 downto 0);  --! Hysteresis lower current bound No.2 (testing)
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
-		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0)
+		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0); 
+		iset_tot_o		: out std_logic_vector(11 downto 0); --! total measured current only integer bits
+		imeas_tot_o		: out std_logic_vector(11 downto 0)  --! total measured current only integer bits 
 		);			            							
 end hybrid_top;
 
@@ -113,7 +118,10 @@ architecture rtl of hybrid_top is
 			DELTA_I_REF_G 		: integer := 25*(2**5); --! minimum set current change (25 A) for entering hysteresis mode 
 			DELTA_I_THR_G 		: integer := 10*(2**5); --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
 			DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
-			D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A) 
+			D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A)
+            Hadj_Rise_1st_G      : integer := 20*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
+            Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
+            DELAY_COMP_CONSTANT : integer := 250000; -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)    
 			N_CYCLE_REST_G		: integer := 0 --! Number of cycles controller stays in Hysterssis after phaseshift 
 		);
 	port(
@@ -146,9 +154,15 @@ architecture rtl of hybrid_top is
 		hyst_t2_o		: out std_logic; --! Start of SECOND_UP of this module
 		hyst_vec_i		: in std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		
 		hyst_t2_ma_i	: in std_logic; --! Start of SECOND_UP of master module 		
-		hss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! hss_bound	 	
+		hss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! hss_bound
+		Tss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! Tss_bound
+		Tss_bound_fall_i: in signed(DATAWIDTH_G-1 downto 0); --! Tss_bound
+		Tss2_bound_i	: in signed(DATAWIDTH_G-1 downto 0); --! Tss_bound
+		Tss2_bound_fall_i: in signed(DATAWIDTH_G-1 downto 0); --! Tss_bound	 		 	
 		deltaH_ready_i	: in std_logic; --! calculation of deltaH finished 
-		deltaH_i 		: in signed(DATAWIDTH_G-1 downto 0); --! signed output value dH 
+		deltaH_i 		: in signed(DATAWIDTH_G-1 downto 0); --! signed output value dH
+		deltaT_i 		: in signed(DATAWIDTH_G-1 downto 0); --! signed output value dT
+		deltaT_fall_i 	: in signed(DATAWIDTH_G-1 downto 0); --! signed output value dT 
 		nreset_pwm_o	: out std_logic; --! soft reset of PI chain, used for reset the phase shift enable signal 
 		imeas_avg_o 	: out signed(DATAWIDTH_G-1 downto 0); --! error measurement averaged (for testing)
 		ierr_o			: out signed(DATAWIDTH_G-1 downto 0); --! error measurement (for testing)
@@ -167,6 +181,7 @@ architecture rtl of hybrid_top is
 			 NO_CONTROLER_G 	: integer := 2; --!  Total number of controler used (slaves + master)
 			 DATAWIDTH_G		: integer := 16; --! internal data width for calculations 
 			 NINTERLOCK_G		: natural := 50; -- number of interlock clocks
+             DELAY_COMP_CONSTANT : integer := 250000; -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  
 			 FS_G 				: real 	  := 60000.0; --! Switching frequency 
 			 F_CLK_G			: real 	  := 100.0*(10**6); --! Clock frequency  
 			 L1_G				: real 	  := 0.00025;--0.00013; --! Inductance [H] at point 1 
@@ -188,10 +203,16 @@ architecture rtl of hybrid_top is
 			hyst_t2_vec_i	: in std_logic_vector(NO_CONTROLER_G-1 downto 0); --! Start of point t2 during hysteresis control of all modules (0: master) 
 			nreset_phase_shift_i: in std_logic; --! reset phase shift enable signal 
 			hss_bound_o 	: out signed(DATAWIDTH_G-1 downto 0); --! signed output value
+			Tss_bound_o 	: out signed(DATAWIDTH_G-1 downto 1); --! signed output value Tss
+			Tss_bound_fall_o : out signed(DATAWIDTH_G-1 downto 1); --! signed output value Tss
+            Tss2_bound_o 	: out signed(DATAWIDTH_G-1 downto 1); --! signed output value tTss2
+            Tss2_bound_fall_o 	: out signed(DATAWIDTH_G-1 downto 1); --! signed output value tTss2
 			imeas_tot_o		: out signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0);--! signed total measurement current 
 			iset_tot_o		: out signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0);--! signed total set current 
 			deltaH_ready_o	: out std_logic_vector(NO_CONTROLER_G-1 downto 1); --! calculation of deltaH finished 
-			deltaH_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1) --! signed output value dH 
+			deltaT_fall_o 	: out array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH			
+            deltaT_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH 
+            deltaH_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1) --! signed output value dH 
 			);
 	end component;
 	
@@ -208,8 +229,14 @@ architecture rtl of hybrid_top is
 	signal nreset_pwm_master_s : std_logic := LOW_C; 
 	signal hss_bound_s : signed(15 downto 0); 
 	signal deltaH_ready_s: std_logic_vector(NO_CONTROLER_G-1 downto 1); --! calculation of deltaH finished 
-	signal deltaH_s 	: array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH 
-	signal imeas_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
+	signal deltaH_s 	: array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH
+	signal deltaT_s 	: array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH
+	signal deltaT_fall_s 	: array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH
+	signal Tss_bound_s :  signed(15 downto 0);  --! signed output value for Tss
+	signal Tss_bound_fall_s :  signed(15 downto 0);  --! signed output value for Tss
+    signal Tss2_bound_s :  signed(15 downto 0); --! signed output value for Tss2
+    signal Tss2_bound_fall_s :  signed(15 downto 0); --! signed output value for Tss2
+	signal imeas_tot_s: signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
 	signal iset_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
 -- =================== STATES ====================================================
 	begin
@@ -234,6 +261,9 @@ architecture rtl of hybrid_top is
 				DELTA_I_THR_G 		=> DELTA_I_THR_G, 	
 				DELTA_VC_G			=> DELTA_VC_G, 
 				D_IOUT_MAX_G		=> D_IOUT_MAX_G,
+                Hadj_Rise_1st_G		=> Hadj_Rise_1st_G,
+                Hadj_Fall_1st_G		=> Hadj_Fall_1st_G,
+                DELAY_COMP_CONSTANT	=> DELAY_COMP_CONSTANT,
 				N_CYCLE_REST_G		=> N_CYCLE_REST_G
 		)
 	port map(
@@ -267,8 +297,14 @@ architecture rtl of hybrid_top is
 		hyst_vec_i		=> hyst_vec_s, 
 		hyst_t2_ma_i	=> LOW_C,
 		hss_bound_i		=> hss_bound_s,
+		Tss_bound_i		=> Tss_bound_s,
+		Tss_bound_fall_i=> Tss_bound_fall_s,
+        Tss2_bound_i		=> Tss2_bound_s,
+        Tss2_bound_fall_i		=> Tss2_bound_fall_s,
 		deltaH_ready_i	=> LOW_C,	
-		deltaH_i 		=> (others => '0'), 		
+		deltaH_i 		=> (others => '0'),
+        deltaT_i 		=> (others => '0'),
+        deltaT_fall_i 		=> (others => '0'),  		
 		nreset_pwm_o	=> nreset_pwm_master_s, 
 		imeas_avg_o 	=> open, 
 		ierr_o			=> ierr_o(0), 
@@ -302,7 +338,10 @@ architecture rtl of hybrid_top is
 						DELTA_I_REF_G 		=> DELTA_I_REF_G, 	
 						DELTA_I_THR_G 		=> DELTA_I_THR_G, 
 						DELTA_VC_G			=> DELTA_VC_G, 						
-						D_IOUT_MAX_G		=> D_IOUT_MAX_G, 
+						D_IOUT_MAX_G		=> D_IOUT_MAX_G,
+                        Hadj_Rise_1st_G		=> Hadj_Rise_1st_G,
+                        Hadj_Fall_1st_G		=> Hadj_Fall_1st_G,
+                        DELAY_COMP_CONSTANT	=> DELAY_COMP_CONSTANT, 
 						N_CYCLE_REST_G		=> N_CYCLE_REST_G
 				)
 			port map(
@@ -336,8 +375,14 @@ architecture rtl of hybrid_top is
 				hyst_vec_i		=> hyst_vec_s, 
 				hyst_t2_ma_i	=> hyst_t2_vec_s(0),
 				hss_bound_i		=> hss_bound_s,
+                Tss_bound_i		=> Tss_bound_s,
+                Tss_bound_fall_i=> Tss_bound_fall_s,
+                Tss2_bound_i	=> Tss2_bound_s,
+                Tss2_bound_fall_i=> Tss2_bound_fall_s,
 				deltaH_ready_i	=> deltaH_ready_s(I),	
-				deltaH_i 		=> deltaH_s(I), 		
+				deltaH_i 		=> deltaH_s(I),
+                deltaT_i 		=> deltaT_s(I),
+                deltaT_fall_i 		=> deltaT_fall_s(I), 		
 				nreset_pwm_o	=> open, 
 				imeas_avg_o 	=> open,
 				ierr_o			=> ierr_o(I),  
@@ -357,6 +402,7 @@ architecture rtl of hybrid_top is
 					NO_CONTROLER_G		=> NO_CONTROLER_G,
 					DATAWIDTH_G			=> DATAWIDTH_G,
 					NINTERLOCK_G		=> NINTERLOCK_G,
+                    DELAY_COMP_CONSTANT => DELAY_COMP_CONSTANT,
 					FS_G 				=> FS_G, 	
 					F_CLK_G				=> F_CLK_G,	
 					L1_G				=> L1_G	,
@@ -378,9 +424,20 @@ architecture rtl of hybrid_top is
 			hyst_t2_vec_i	=> hyst_t2_vec_s,
 			nreset_phase_shift_i => nreset_pwm_master_s, 
 			hss_bound_o 	=> hss_bound_s,
+            Tss_bound_o 	=> Tss_bound_s,
+            Tss_bound_fall_o => Tss_bound_fall_s,
+            Tss2_bound_o 	=> Tss2_bound_s,
+            Tss2_bound_fall_o 	=> Tss2_bound_fall_s,
+
 			imeas_tot_o		=> imeas_tot_s,		
-			iset_tot_o		=> iset_tot_s,			
-			deltaH_ready_o	=> deltaH_ready_s,	
+			iset_tot_o		=> iset_tot_s,		
+			deltaH_ready_o	=> deltaH_ready_s,
+            deltaT_o 		=> deltaT_s,
+            deltaT_fall_o 		=> deltaT_fall_s, 	
 			deltaH_o 		=> deltaH_s 		
 			);
+			
+	imeas_tot_o <= std_logic_vector(resize(imeas_tot_s(imeas_tot_s'length -1 downto 5),12)); 
+	iset_tot_o  <= std_logic_vector(resize(iset_tot_s(iset_tot_s'length -1 downto 5),12)); 
+			
 end rtl; 

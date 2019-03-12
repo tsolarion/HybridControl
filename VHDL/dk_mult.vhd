@@ -30,6 +30,7 @@ use ieee.numeric_std.all;
 entity dk_mult is 
 	generic( 	DATAWIDTH_G		: natural := 16; 	--! Data width of measurements  
 				CMAX_G 			: integer := 1666; 	--! Maximum counter value of PWM (determines PWM frequency)
+				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G 
 				NO_CONTROLER_G 	: integer := 2; 	--! Total number of controler used
 				MY_NUMBER_G 	: integer := 1  	--! Slave number 
 			);		
@@ -39,8 +40,12 @@ entity dk_mult is
 			t2_start_sl_i	: in std_logic; --! Start of corner point t2 during hysteresis control of slave 
 			t2_start_ma_i	: in std_logic; --! Start of corner point t2 during hysteresis control of master 
 			dk_factor_i		: in signed(DATAWIDTH_G-1 downto 0); --!  factor with 12 additional fractional bits 
+			Delta_y_i		: in signed(31 downto 0); --!  DELAY_CONSTANT_SS/(V1-Vc)
+			Delta_y_fall_i	: in signed(31 downto 0); --!  DELAY_CONSTANT_SS/(V1-Vc)
 			dk_factor_ready_i: in std_logic; --! new dk_factor available 
 			deltaH_ready_o	: out std_logic; --! calculation of deltaH finished 
+			deltaT_o 		: out signed(DATAWIDTH_G-1 downto 0); --! signed output value dH
+			deltaT_fall_o 		: out signed(DATAWIDTH_G-1 downto 0); --! signed output value dH 
 			deltaH_o 		: out signed(DATAWIDTH_G-1 downto 0) --! signed output value dH 
 			);		
 end dk_mult;
@@ -52,7 +57,9 @@ architecture structural of dk_mult is
 
 constant CNT_MULT_C	: integer  range 0 to 10*CMAX_G:= 20; --! number of clockcycles for multiplying DK(12 bits) with S1*S2 (34 bits)
 
-constant DK_WANTED_C		: integer  range 0 to 10*CMAX_G := (CMAX_G * MY_NUMBER_G)/(NO_CONTROLER_G); --! wanted counter difference 
+constant DK_WANTED_C: integer  range 0 to 10*CMAX_G := (CMAX_G * MY_NUMBER_G)/(NO_CONTROLER_G); --! wanted counter difference 
+constant DK_MAXNEG_C: integer range 0 to CMAX_G := integer(MAX_NEG_FAC_G*real(CMAX_G)) ; 
+
 -- ================== COMPONENTS =================================================
 
 --! @brief Signed multiplier 34 bits x 12 bits 
@@ -66,8 +73,19 @@ component my_16_12_mult is
 	);
 end component;
 
+--! @brief Signed multiplier (37 bits) x (37 bits) 
+component my_37_37_mult is 
+	port
+	(
+		clock		: in std_logic ;
+		dataa		: in std_logic_vector (36 downto 0);
+		datab		: in std_logic_vector (36 downto 0);
+		result		: out std_logic_vector (73 downto 0)
+	);
+end component;
+
 -- =================== STATES ====================================================
-type dk_state is (IDLE,WAIT_TRIGGER, SLAVECNT, MASTERCNT, SLAVEUPDATE, MASTERUPDATE,MULT); --! States measuring the phase shift (in clocks) between master and slave 
+type dk_state is (IDLE,WAIT_TRIGGER, SLAVECNT, MASTERCNT, SLAVEUPDATE, MASTERUPDATE,MULT,TMULT_FALL, TMULT); --! States measuring the phase shift (in clocks) between master and slave 
 
 -- =================== SIGNALS ===================================================
 -- All variables denoted with x are inputs of operations
@@ -80,13 +98,17 @@ signal x2_s, x2_next_s : std_logic_vector(11 downto 0) := (others => '0'); --! d
 
 signal y1_s : std_logic_vector(27 downto 0) := (others => '0'); --! y1_s = x1_s*x2_s = dk_factor_i*d_phase
 signal result_s, result_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! result_s = y1_s >> 12 = (dk_factor_i*d_phase) >> 12
+signal result_res_s, result_res_next_s : signed(36 downto 0) := (others => '0'); --! result_s = y1_s >> 12 = (dk_factor_i*d_phase) >> 12
+signal Tresult_s, Tresult_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! result_s * Delta_y_i
+signal Tresult_fall_s, Tresult_fall_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! result_s * Delta_y_i
+
+signal Delta_Ty2, Delta_Ty2_fall : std_logic_vector(73 downto 0) := (others => '0');
+signal Delta_y_reg_i, Delta_y_reg_next_i : signed(36 downto 0) := (others => '0');
+signal Delta_y_reg_fall_i, Delta_y_reg_fall_next_i : signed(36 downto 0) := (others => '0');
 
 signal dk_factor_ready_next_s, dk_factor_ready_s: std_logic := '0'; -- latched dk_factor_ready_i signal, reset at end of MULT state 
 
 signal hyst_start_s : std_logic_vector(1 downto 0) := "00"; -- for edge detection 
-
-signal master_back_s, master_back_next_s : std_logic := '0'; 
-signal slave_back_s, slave_back_next_s : std_logic := '0'; 
 
 begin		
 
@@ -100,52 +122,52 @@ begin
 			dk_cnt_s 	<= 0;
 			x1_s 		<= (others => '0'); 
 			x2_s 		<= (others => '0'); 
-			result_s	<= (others => '0'); 
+			result_s	<= (others => '0');
+            result_res_s<= (others => '0');
+			Tresult_s	<= (others => '0');
+			Tresult_fall_s	<= (others => '0');
 			dk_factor_ready_s <= '0'; 
 			hyst_start_s <= "00"; 
-			master_back_s<= '0'; 
-			slave_back_s <= '0'; 
 		elsif rising_edge(clk_i) then
 			dk_state_s 	<= dk_state_next_s; 
 			dk_cnt_s	<= dk_cnt_next_s;
 			x1_s 		<= x1_next_s; 
 			x2_s 		<= x2_next_s; 
-			result_s	<= result_next_s; 
+			result_s	<= result_next_s;
+			result_res_s	<= result_res_next_s;  
+			Tresult_s	<= Tresult_next_s;
+			Tresult_fall_s	<= Tresult_fall_next_s;
+            Delta_y_reg_i	<= Delta_y_reg_next_i;
+            Delta_y_reg_fall_i	<= Delta_y_reg_fall_next_i;  
 			dk_factor_ready_s <= dk_factor_ready_next_s; 
 			hyst_start_s <= hyst_start_s(0) & hyst_i; 	
-			master_back_s<= master_back_next_s; 
-			slave_back_s <= slave_back_next_s; 
 		end if; 
 	end process; 
 
 	--! @brief  dk state machine and counter logic 
-	dk_logic: process(dk_state_s,dk_cnt_s,t2_start_ma_i,t2_start_sl_i, hyst_start_s,dk_factor_i,dk_factor_ready_i,dk_factor_ready_s,x1_s,x2_s,result_s,y1_s,master_back_s,slave_back_s) 
+	dk_logic: process(dk_state_s,dk_cnt_s,t2_start_ma_i,t2_start_sl_i, 
+						hyst_start_s, dk_factor_i, dk_factor_ready_i, dk_factor_ready_s,
+						x1_s,x2_s, result_s, y1_s, Tresult_s, Tresult_fall_s) 
 	begin
 		-- default assignments for avoiding latches 
 		dk_state_next_s <= dk_state_s; 
 		dk_cnt_next_s 	<= dk_cnt_s; 
-		result_next_s	<= result_s; 
+		result_next_s	<= result_s;
+		result_res_next_s	<= result_res_s;  
+		Tresult_next_s	<= Tresult_s;
+		Tresult_fall_next_s	<= Tresult_fall_s; 
 		x1_next_s		<= x1_s; 
 		x2_next_s		<= x2_s; 
-		
+		Delta_y_reg_next_i	<= Delta_y_reg_i;
+		Delta_y_reg_fall_next_i	<= Delta_y_reg_fall_i; 		
+ 		
 		-- set dk_factor_ready_s high from dk_factor_ready_i' till end of calculation 
 		if dk_factor_ready_i = '1' then 
 			dk_factor_ready_next_s <= '1'; 	
 		else 
 			dk_factor_ready_next_s <= dk_factor_ready_s; 	
 		end if; 
-		
-		-- Locic for updating x2_next which determines the adjustment 
-		if CMAX_G - DK_WANTED_C + dk_cnt_s < DK_WANTED_C - dk_cnt_s then 
-			master_back_next_s<= '1';   
-		else master_back_next_s<= '0' ; 
-		end if; 
-		if CMAX_G - DK_WANTED_C + CMAX_G - dk_cnt_s < DK_WANTED_C - CMAX_G + dk_cnt_s then 
-			slave_back_next_s <= '1'; 
-		else slave_back_next_s <= '0'; 
-		end if; 
-		
-		
+				
 		-- statemachine logic 
 		case dk_state_s is 
 			when IDLE => 
@@ -187,10 +209,14 @@ begin
 					dk_state_next_s <= MULT; 
 					x1_next_s <= std_logic_vector(dk_factor_i); 
 					-- decide which direction the correction has to be done 
-					if master_back_s = '1' then -- go backwards 
-						x2_next_s <= std_logic_vector(to_signed(-CMAX_G +DK_WANTED_C - dk_cnt_s,12)); 
-					else -- go forward
+					if ((dk_cnt_s-DK_WANTED_C <= DK_MAXNEG_C) and (dk_cnt_s > DK_WANTED_C)) then -- go backwards 
 						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - dk_cnt_s,12)); 
+					elsif ((DK_WANTED_C+DK_MAXNEG_C>CMAX_G) and (dk_cnt_s <= DK_WANTED_C + DK_MAXNEG_C - CMAX_G)) then -- go backwards 
+						x2_next_s <= std_logic_vector(to_signed(-CMAX_G +DK_WANTED_C - dk_cnt_s,12)); 
+					elsif DK_WANTED_C >= dk_cnt_s then -- go forward
+						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - dk_cnt_s,12)); 
+					else 
+						x2_next_s <= std_logic_vector(to_signed(CMAX_G - dk_cnt_s + DK_WANTED_C  ,12)); 
 					end if; 
 				end if; 
 				
@@ -200,10 +226,12 @@ begin
 					dk_state_next_s <= MULT;
 					x1_next_s <= std_logic_vector(dk_factor_i); 
 					-- decide which direction the correction has to be done 
-					if slave_back_s = '1' then -- go backwards 
-						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C + dk_cnt_s,12)); 
-					else -- go forward
+					if(CMAX_G - DK_WANTED_C - dk_cnt_s <= DK_MAXNEG_C) and (CMAX_G-dk_cnt_s >= DK_WANTED_C) then -- go backwards 
+						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C + dk_cnt_s-CMAX_G,12)); 
+					elsif dk_cnt_s >= CMAX_G - DK_WANTED_C then -- go forward 
 						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - CMAX_G + dk_cnt_s ,12)); 
+					else 
+						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C+ dk_cnt_s ,12)); 
 					end if; 
 				end if; 
 			-- in MULT, dk_cnt_s is used as supervision 
@@ -212,11 +240,31 @@ begin
 					dk_cnt_next_s <= dk_cnt_s +1; 
 				else -- calculation done 
 					dk_cnt_next_s <= 0; 
-					dk_state_next_s <= IDLE; 
+					dk_state_next_s <= TMULT_FALL;
+                    Delta_y_reg_next_i <= resize(Delta_y_i, 37);
+                    Delta_y_reg_fall_next_i <= resize(Delta_y_fall_i, 37);
 					result_next_s <= signed(y1_s(27 downto 12)); -- shift result 12 bits to right
+                    result_res_next_s <= resize(signed(y1_s(27 downto 12)),37);
 					dk_factor_ready_next_s <= '0'; 
 				end if; 
-				
+
+            when TMULT_FALL =>
+                if dk_cnt_s < CNT_MULT_C +1 then 
+					dk_cnt_next_s <= dk_cnt_s +1; 
+                else -- calculation done 
+					dk_cnt_next_s <= 0;
+					Tresult_fall_next_s <= resize(signed(Delta_Ty2_fall)/32,16); -- resize and save  
+					dk_state_next_s <= TMULT; 
+                end if;
+
+            when TMULT =>
+                if dk_cnt_s < CNT_MULT_C +1 then 
+					dk_cnt_next_s <= dk_cnt_s +1; 
+                else -- calculation done 
+					dk_cnt_next_s <= 0;
+					Tresult_next_s <= resize(signed(Delta_Ty2)/32,16); -- resize and save  
+					dk_state_next_s <= IDLE; 
+                end if;
 				
 			when others => 		
 			end case;  
@@ -231,7 +279,25 @@ begin
 		result		=> y1_s 
 	);
 
+	RiseMult2_inst : my_37_37_mult
+	port map(
+		clock		=> clk_i, 
+		dataa		=> std_logic_vector(Delta_y_reg_i), 
+		datab		=> std_logic_vector(result_res_s),
+		result		=> Delta_Ty2
+	);
+
+	FallMult2_inst : my_37_37_mult
+	port map(
+		clock		=> clk_i, 
+		dataa		=> std_logic_vector(Delta_y_reg_fall_i), 
+		datab		=> std_logic_vector(result_res_s),
+		result		=> Delta_Ty2_fall
+	);
+
 	-- OUTPUT ANOTAITON:
-	deltaH_o <= result_s; 
+	deltaH_o <= result_s;
+    deltaT_o <= Tresult_s;
+    deltaT_fall_o <= Tresult_fall_s;    
 	deltaH_ready_o <= '1' when (dk_state_s = IDLE) else '0'; 
 end structural; 
