@@ -1,0 +1,114 @@
+# -------------------------------------------------------------------------- #
+#
+# Copyright (C) 2016  Intel Corporation. All rights reserved.
+# Your use of Intel Corporation's design tools, logic functions 
+# and other software and tools, and its AMPP partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Intel Program License 
+# Subscription Agreement, the Intel Quartus Prime License Agreement,
+# the Intel MegaCore Function License Agreement, or other 
+# applicable license agreement, including, without limitation, 
+# that your use is for the sole purpose of programming logic 
+# devices manufactured by Intel and sold by Intel or its 
+# authorized distributors.  Please refer to the applicable 
+# agreement for further details.
+#
+# -------------------------------------------------------------------------- #
+#
+# Quartus Prime
+# Version 16.1.0 Build 196 10/24/2016 SJ Standard Edition
+# Date created = 13:56:05  November 05, 2018
+#
+# -------------------------------------------------------------------------- #
+#
+# Notes:
+#
+# 1) The default values for assignments are stored in the file:
+#		1module_assignment_defaults.qdf
+#    If this file doesn't exist, see file:
+#		assignment_defaults.qdf
+#
+# 2) Altera recommends that you do not modify this file. This
+#    file is updated automatically by the Quartus Prime software
+#    and any changes you make may be lost or overwritten.
+#
+# -------------------------------------------------------------------------- #
+
+
+set_global_assignment -name FAMILY "Cyclone V"
+set_global_assignment -name DEVICE 5CGXFC7C7F23C8
+set_global_assignment -name TOP_LEVEL_ENTITY schem_toplevel
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.1.0
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "13:56:05  NOVEMBER 05, 2018"
+<<<<<<< .mine
+set_global_assignment -name LAST_QUARTUS_VERSION "17.1.0 Standard Edition"
+=======
+set_global_assignment -name LAST_QUARTUS_VERSION "16.1.2 Standard Edition"
+>>>>>>> .r218
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
+set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
+set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "23 MM HEAT SINK WITH 200 LFPM AIRFLOW"
+set_global_assignment -name POWER_BOARD_THERMAL_MODEL "NONE (CONSERVATIVE)"
+set_global_assignment -name VHDL_FILE ../VHDL/sin_table.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/signal_generator.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/ramp_table.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/sync_vec.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/sync.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/module_start.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/clk_div.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/median_conversion.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/median_filt.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/fp_conversion.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/startup.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/signed_limiter.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/pwm_st.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/pi_control_bw_euler.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/phase_shift_control.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/moving_avg.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/interlocking.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/hysteresis_control.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/hysteresis_calc.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/hybrid_top1.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/hybrid_control.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/dutycycle_calc.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/dk_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_var_L.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_hyst_bounds.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_deltaH_bound2.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/and_reduce_edge.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/16b_array.vhd
+set_global_assignment -name VHDL_FILE top1.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_46_33_div.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_37_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_37_17_div.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_36_17_div.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_31b_divider.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_26_divider.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_18_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_17_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_17_16_mult.vhd
+set_global_assignment -name SOURCE_FILE ../VHDL/calc_ip/my_17_mult.cmp
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_16_18_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_16_12_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/calc_ip/my_16_11_mult.vhd
+set_global_assignment -name VHDL_FILE ../VHDL/runtime_limiter.vhd
+set_global_assignment -name BDF_FILE schem_toplevel.bdf
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/fp32_signed16_conv.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/iset_const.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/kp_const.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/kixts_const.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/my_16_mult.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/vbush_const.qip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/vbusl_const.qip
+set_global_assignment -name QIP_FILE PLL/pll1.qip
+set_global_assignment -name SIP_FILE PLL/pll1.sip
+set_global_assignment -name QIP_FILE ../VHDL/calc_ip/enable_const.qip
+set_global_assignment -name QIP_FILE my_integer_divider.qip
+set_global_assignment -name QIP_FILE my_37_37_mult.qip
+set_global_assignment -name QIP_FILE my_37_36_mult.qip
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
