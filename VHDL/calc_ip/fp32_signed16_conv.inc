@@ -14,9 +14,15 @@
 --agreement for further details.
 
 
-component vbush_const
-	PORT
-	(
-		result		: OUT STD_LOGIC_VECTOR (11 DOWNTO 0)
-	);
-end component;
+FUNCTION fp32_signed16_conv 
+(
+	clock,
+	dataa[31..0]
+)
+
+RETURNS (
+	nan,
+	overflow,
+	result[15..0],
+	underflow
+);

@@ -4,7 +4,7 @@ editor if you plan to continue editing the block that represents it in
 the Block Editor! File corruption is VERY likely to occur.
 */
 /*
-Copyright (C) 2016  Intel Corporation. All rights reserved.
+Copyright (C) 2017  Intel Corporation. All rights reserved.
 Your use of Intel Corporation's design tools, logic functions 
 and other software and tools, and its AMPP partner logic 
 functions, and any output files from any of the foregoing 
@@ -28,7 +28,7 @@ agreement for further details.
 		(pt 112 24)
 		(output)
 		(text "result[11..0]" (rect 0 0 66 14)(font "Arial" (font_size 8)))
-		(text "3100" (rect 69 17 91 30)(font "Arial" (font_size 8)))
+		(text "0" (rect 87 17 91 30)(font "Arial" (font_size 8)))
 		(line (pt 112 24)(pt 96 24)(line_width 3))
 	)
 	(drawing
