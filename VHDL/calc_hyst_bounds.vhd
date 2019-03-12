@@ -75,10 +75,12 @@ constant SIGNED_32_MAX		: signed(31 downto 0) := to_signed(2**30-1,32);
 constant SIGNED_32_MIN		: signed(31 downto 0) := to_signed(-2**30-1,32); 
 
 constant TRISE_MAX          : signed(15 downto 0) := to_signed(8000,16);
-constant TRISE_MIN          : signed(15 downto 0) := to_signed(70,16);
+constant TRISE_MIN          : signed(15 downto 0) := to_signed(50,16);
 
 constant TFALL_MAX          : signed(15 downto 0) := to_signed(10000,16); 
-constant TFALL_MIN          : signed(15 downto 0) := to_signed(100,16); 
+constant TFALL_MIN          : signed(15 downto 0) := to_signed(50,16); 
+
+constant VC_GUESS           :integer := 100; -- Guessed value for the initial voltage in case it is not available from the Rset
 
  
 -- ================== COMPONENTS =================================================
@@ -802,7 +804,7 @@ begin
 					V2_comp_next_s <= vbusl_i;
                     V1_comp_next_s <= vbush_i;  
 					if to_integer(Rset_i) = 0  then
-						Vc_comp_next_s <= to_signed(100*2**5,32);--! CAREFUL!! Since it is not available we have to guess the output voltage at the first rise
+						Vc_comp_next_s <= to_signed(VC_GUESS*2**5,32);--! CAREFUL!! Since it is not available we have to guess the output voltage at the first rise
                     else
 						Vc_comp_next_s <= signed(vc_set_s)/2**12;
                     end if;
@@ -824,8 +826,8 @@ begin
 					Tcomp_cnt_next_s <= Tcomp_cnt_s + 1;
 				else 
 					Tcomp_cnt_next_s <= 0; 
-               Hcomp_rise_result_next_s <= signed(yComp_mult_r_s)/2**12;
-               Hcomp_fall_result_next_s <= signed(yComp_mult_f_s)/2**12;
+                    Hcomp_rise_result_next_s <= signed(yComp_mult_r_s)/2**12;
+                    Hcomp_fall_result_next_s <= signed(yComp_mult_f_s)/2**12;
 					Hcomp_state_next_s <= IDLE;
                 end if; 
 			when others =>
@@ -850,8 +852,7 @@ begin
 		end if; 
 
   end process;	
-		
-
+	
 	--! @brief Hss arithmetic logic  
 	hss_arithmetic: process(iset_i,vc_s,vbusl_s,vbush_s,x10_s,x30_s,x31_s,Vc_r2_s,V1_r2_s, hyst_i,Vc_comp_s, V1_comp_s, V2_comp_s)
 	begin 	
@@ -884,7 +885,6 @@ begin
 		result		=> y1_s
 	);
 
-	
 	div_inst: my_36_17_div
 	port map(
 		clock		=> clk_i,

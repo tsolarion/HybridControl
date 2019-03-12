@@ -15,7 +15,6 @@
 --! @date  10.10.2017
 
 
-
 library work; 
 USE work.stdvar_arr_pkg.all;
 -- use standard library
@@ -49,8 +48,6 @@ entity hybrid_top is
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A) 
                 TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.
-				Hadj_Rise_1st_G     : integer := 10*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
-                Hadj_Fall_1st_G     : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
                 DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  		
                 HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "011"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
 				N_CYCLE_REST_G		: integer := 0; --! Number of PWM cycles controller stays in Hysterssis after phaseshift 
@@ -113,8 +110,6 @@ architecture rtl of hybrid_top is
 			DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode
             TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds. 
 			D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A)
-            Hadj_Rise_1st_G      : integer := 20*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
-            Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
             DELAY_COMP_CONSTANT : integer := 250000; -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)   
 			N_CYCLE_REST_G		: integer := 0 --! Number of cycles controller stays in Hysterssis after phaseshift 
 		);
@@ -276,8 +271,6 @@ architecture rtl of hybrid_top is
 				DELTA_VC_G			=> DELTA_VC_G, 
 				D_IOUT_MAX_G		=> D_IOUT_MAX_G,
                 TIME_DELAY_CONSTANT => TIME_DELAY_CONSTANT,
-                Hadj_Rise_1st_G		=> Hadj_Rise_1st_G,
-                Hadj_Fall_1st_G		=> Hadj_Fall_1st_G,
                 DELAY_COMP_CONSTANT	=> DELAY_COMP_CONSTANT,
 				N_CYCLE_REST_G		=> N_CYCLE_REST_G
 		)

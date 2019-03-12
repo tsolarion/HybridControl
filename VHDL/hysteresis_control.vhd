@@ -41,8 +41,6 @@ entity hysteresis_control is
 				DELTA_I_THR_G 	: integer := 25*(2**5); --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G		: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G	: integer := 5*(2**5); --! Maximum current ripple after first rise (here 10A)
-				Hadj_Rise_1st_G      : integer := 20*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
-                Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
                 TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
 				N_CYCLE_REST_G	: integer := 0 --! Number of cycles controller stays in Hysterssis after phaseshift 
 			);		
@@ -464,8 +462,8 @@ begin
 					--if phase_shift_en = '1' then -- all modules first NEW_STEP mode passed 			TSOL: WAS THIS ALREADY COMMENTED OUT??
 						hyst_state_next_s <= DELAY_3;
                         dly_cnt_next_s <= 0; 
-						i_upper_next_s <= iset_s + (to_integer(hss_bound_i)- Hadj_Rise_1st_G);
-						i_lower_next_s <= iset_s - (to_integer(hss_bound_i) - Hadj_Fall_1st_G); 
+						i_upper_next_s <= iset_s + (to_integer(hss_bound_i));
+						i_lower_next_s <= iset_s - (to_integer(hss_bound_i)); 
 				--else 
 					--	hyst_state_next_s <= FIRST_DOWN; TSOL: WAS THIS ALREADY COMMENTED OUT??
 					--	t1_start_next_s <= '1';TSOL: WAS THIS ALREADY COMMENTED OUT??
@@ -489,7 +487,7 @@ begin
 			when PHASE_SHIFT =>
 				-- adjust lower current bound still if calculation took longer 
 				if MY_NUMBER_G /= 0 and deltaH_ready_i = '1' then -- 
-					i_lower_next_s <= iset_s - to_integer(hss_bound_i) - to_integer(deltaH_i) + Hadj_Fall_1st_G;--; --iset_s - H0_C - to_integer(signed(deltaH_s)); --
+					i_lower_next_s <= iset_s - to_integer(hss_bound_i) - to_integer(deltaH_i) ;--; --iset_s - H0_C - to_integer(signed(deltaH_s)); --
                     delay_Delta_fall_next_s <= delay_fall_2nd_s/2 + to_integer(Tss2_bound_fall_i)/2 + to_integer(deltaT_fall_i) - CNT_MIN;
                     delay_Delta_rise_next_s	<= to_integer(Tss2_bound_i) +  to_integer(deltaT_i);
 				end if; 
@@ -500,7 +498,7 @@ begin
                 else
 					hyst_state_next_s <= DELAY_4;
                     dly_cnt_next_s <= 0; 
-					i_lower_next_s <= iset_s - to_integer(hss_bound_i) + Hadj_Fall_1st_G;
+					i_lower_next_s <= iset_s - to_integer(hss_bound_i) ;
                     delay_Delta_rise_next_s	<= to_integer(Tss2_bound_i) +  to_integer(deltaT_i);
 
 				end if;

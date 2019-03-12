@@ -49,8 +49,6 @@ entity hybrid_control is
 			DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 			D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A)
             TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
-            Hadj_Rise_1st_G      : integer := 20*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
-            Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
             DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  
 			N_CYCLE_REST_G		: integer := 0 --! Number of cycles controller stays in Hysterssis after phaseshift 
 		);
@@ -226,8 +224,6 @@ architecture rtl of hybrid_control is
 				DELTA_VC_G		: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G	: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A)
                 TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
-				Hadj_Rise_1st_G      : integer := 20*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V1- Vc)/L
-                Hadj_Fall_1st_G      : integer := 0*(2**5); --! Adjustment of the current boundary for the first rise due to delay: Tdly*(V2- Vc)/L
 				N_CYCLE_REST_G	: integer := 0 --! Number of cycles controller stays in Hysterssis after phaseshift 
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
@@ -485,9 +481,7 @@ architecture rtl of hybrid_control is
 				DELTA_I_THR_G 		=> DELTA_I_THR_G, 
 				DELTA_VC_G			=> DELTA_VC_G, 
 				D_IOUT_MAX_G		=> D_IOUT_MAX_G,
-                Hadj_Rise_1st_G		=> Hadj_Rise_1st_G,
                 TIME_DELAY_CONSTANT => TIME_DELAY_CONSTANT,
-                Hadj_Fall_1st_G		=> Hadj_Fall_1st_G,
 				N_CYCLE_REST_G		=> N_CYCLE_REST_G
 			)
 	port map (clk_i			=> clk_i, 
