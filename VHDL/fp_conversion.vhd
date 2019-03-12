@@ -27,7 +27,7 @@ use ieee.numeric_std.all;
 --! @brief Conversion of PI gains and set current 
 --! @details Input PI gains are original floating points values 
 --! @details Output is fixed point value 4.12 , be aware that integer ranges from [-8 7]
---! @details Iset current: Input is total current in fixed point, output is array of current per module with additional fixed point bits 
+--! @details Iset current: Input is total current in fixed point, output is array of current per module 
 
 entity fp_conversion is 
 	generic( 	

@@ -367,7 +367,7 @@ architecture rtl of hybrid_control is
 		clk_i			=> clk_i, 	
 		nreset_i		=> nreset_i, 
 		nsoftreset_i	=> nreset_PI_Duty_s, 
-		int_enable_i	=> HIGH_C, --
+		int_enable_i	=> HIGH_C, 
 		data_i			=> ierr_avg_s,
 		data_valid_i	=> data_clk_i, 
 		kprop_i			=> kprop_i,	

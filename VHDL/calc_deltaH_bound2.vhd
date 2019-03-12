@@ -7,7 +7,7 @@
 -- EDA syn	:	Altera Quartus II
 -- EDA sim	:	Modelsim SE 10.1c
 -- misc		:	--
--- depdcy	:	my_17_mult, my_46_33_div, my_17_16_mult,dk_mult, my_16_12_mult
+-- depdcy	:	--
 --==========================================================
 
 --! @file calc_deltaH_bound2.vhd
@@ -24,9 +24,6 @@ use ieee.std_logic_1164.all;
 --! Use numeric elements
 use ieee.numeric_std.all;
 
---library lpm; 
---use lpm.all; 
-
 --! @brief Calculate hystersis delta H bound. 
 --! @details The deltaH bound is used to introduce an aditional phase shift in the hystersis control 
 --! @details deltaH_o = (dt*-dt)*S1*S2/(S2-S1)
@@ -37,8 +34,8 @@ use ieee.numeric_std.all;
 entity calc_deltaH_bound2 is 
 	generic( 	DATAWIDTH_G		: natural := 16; --! Data width of measurements  
 				CMAX_G 			: integer := 1666; --! Maximum counter value of PWM (determines PWM frequency)
-				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G 
-				NO_CONTROLER_G 	: integer := 2 --! Total number of controler used
+				NO_CONTROLER_G 	: integer := 2; --! Total number of controler used
+				MY_NUMBER_G 	: integer := 1  --! Slave number 
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
 			nreset_i 		: in std_logic; --! Asynchronous reset 
@@ -109,13 +106,12 @@ end component;
 component dk_mult is 
 	generic( 	DATAWIDTH_G		: natural := 16; 	--! Data width of measurements  
 				CMAX_G 			: integer := 1666; 	--! Maximum counter value of PWM (determines PWM frequency)
-				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G 				
 				NO_CONTROLER_G 	: integer := 2; 	--! Total number of controler used
 				MY_NUMBER_G 	: integer := 1  	--! Slave number 
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
 			nreset_i 		: in std_logic; --! Asynchronous reset 
-			hyst_i			: in std_logic; --! start of hysteresis mode in this module 
+			hyst_i	: in std_logic; --! start of hysteresis mode in this module 
 			t2_start_sl_i	: in std_logic; --! Start of corner point t2 during hysteresis control of slave 
 			t2_start_ma_i	: in std_logic; --! Start of corner point t2 during hysteresis control of master 
 			dk_factor_i		: in signed(DATAWIDTH_G-1 downto 0); --!  factor with 12 additional fractional bits 
@@ -164,7 +160,7 @@ begin
 	dH_reg : process(clk_i,nreset_i)
 	begin
 		if nreset_i = '0' then
-			phase_shift_en_vec_s <= "00"; 
+			phase_shift_en_vec_s <= "01"; 
 			dH_state_s <= IDLE; 
 			dH_cnt_s 	<= 0;
 			s1_s 		<= (others => '0');
@@ -278,7 +274,7 @@ begin
 		result		=> y10_s
 	);
 	
-	my_17_16_mult_inst:  my_17_16_mult
+		my_17_16_mult_inst:  my_17_16_mult
 	port map(
 		clock		=> clk_i,
 		dataa		=> std_logic_vector(s2ms1_s),
@@ -303,7 +299,6 @@ begin
 			generic map(
 				DATAWIDTH_G			=> DATAWIDTH_G, 
 				CMAX_G 				=> CMAX_G, 
-				MAX_NEG_FAC_G		=> MAX_NEG_FAC_G, 
 				NO_CONTROLER_G 		=> NO_CONTROLER_G, 
 				MY_NUMBER_G 		=> I
 				)

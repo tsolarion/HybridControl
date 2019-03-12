@@ -1,6 +1,6 @@
 --==========================================================
--- Unit		:	interlocking.rtl)
--- File		:	interlocking.vhd
+-- Unit		:	interlocking.vhd(rtl)
+-- File		:	interlocking.vhd.vhd
 -- Purpose	:	
 -- Author	:	Michael Hersche - HPE - ETH Zuerich
 -- Device	:	Altera FPGA - Cyclone V
@@ -10,7 +10,7 @@
 -- depdcy	:	--
 --==========================================================
 
---! @file interlocking.vhd
+--! @file interlocking.vhd.vhd
 --! @author Michael Hersche
 --! @date  24.10.2017
 
@@ -84,7 +84,7 @@ begin
 					cnt_next_s <= 0; 
 				end if; 
 			when S1_HIGH => 
-				if cnt_s = NINTERLOCK_G -1  then 
+				if cnt_s = NINTERLOCK_G then 
 					if sw1_i = '0' then -- falling edge 
 						state_next_s <= INT1; 
 						cnt_next_s <= 0; 
@@ -94,7 +94,7 @@ begin
 				end if; 
 				
 			when INT1 => 
-				if cnt_s = NINTERLOCK_G-1 then 
+				if cnt_s = NINTERLOCK_G then 
 					if sw1_i = '0' then 
 						state_next_s <= S2_HIGH; 
 					elsif sw1_i = '1' then 
@@ -105,7 +105,7 @@ begin
 					cnt_next_s <= cnt_s + 1; 
 				end if; 				
 			when S2_HIGH => 
-				if cnt_s = NINTERLOCK_G-1 then 
+				if cnt_s = NINTERLOCK_G then 
 					if sw1_i = '1' then -- rising edge 
 						state_next_s <= INT2; 
 						cnt_next_s <= 0; 
@@ -115,7 +115,7 @@ begin
 				end if; 
 					
 			when INT2 => 
-				if cnt_s = NINTERLOCK_G-1 then 
+				if cnt_s = NINTERLOCK_G then 
 					if sw1_i = '0' then 
 						state_next_s <= S2_HIGH; 
 					elsif sw1_i = '1' then 

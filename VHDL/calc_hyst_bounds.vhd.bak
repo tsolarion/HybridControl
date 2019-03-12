@@ -30,8 +30,6 @@ use ieee.numeric_std.all;
 entity calc_hyst_bounds is 
 	generic( 	DATAWIDTH_G : natural := 16; 
 				NINTERLOCK_G: natural := 50 -- number of interlock clocks 
-				-- Maximum of constants  
-				
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
 			nreset_i 		: in std_logic; --! Asynchronous reset 

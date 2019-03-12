@@ -32,7 +32,8 @@ entity runtime_limiter is
 			nreset_i 		: in std_logic; --! asynchronous nreset 
 			nsoftreset_i	: in std_logic; --! synchronous softreset 
 			sw_i			: in std_logic_vector(2*NO_CONTROLER_G-1 downto 0); --! PWM switch input 
-			sw_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0) --! PWM switch output  			
+			sw_o_H			: out std_logic; --! PWM switch output  		
+			sw_o_L			: out std_logic 	--! PWM switch output  		
 			);
 end runtime_limiter;
 
@@ -68,20 +69,20 @@ begin
 	end process; 
 	
 	--counter logic 
-	statemachine_logic: process(cnt_s,sw_i) 
-	begin
-		if cnt_s < RUN_CYCLES_G then 
-			cnt_next_s <= cnt_s + 1; 
-			sw_next_s <= sw_i; 
-		else 
-			cnt_next_s <= cnt_s; 
-			sw_next_s <= (others => '0'); 
-		end if; 
+--	statemachine_logic: process(cnt_s,sw_i) 
+--	begin
+--		if cnt_s < RUN_CYCLES_G then 
+--			cnt_next_s <= cnt_s + 1; 
+--			sw_next_s <= sw_i; 
+--		else 
+--			cnt_next_s <= cnt_s; 
+--			sw_next_s <= (others => '0'); 
+--		end if; 
 		
-	end process; 
+--	end process; 
 	
 	-- output assignments 
-	sw_o <= sw_s; 
-
+	sw_o_H <= sw_i(0); 
+	sw_o_L <= sw_i(1); 
 			
 end structural; 

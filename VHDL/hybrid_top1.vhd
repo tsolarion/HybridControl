@@ -42,6 +42,8 @@ entity hybrid_top is
 				ANTI_WINDUP_G		: integer 				:= 50*(2**5); --! maximum error for integration active 
 				GAINBM_G			: natural range 0 to 16 := 12; 			--! fractional fixed points bit
 				GAINBP_G			: natural range 1 to 16 := 4; 			--! integer bits
+				--Kprop_G		: integer				:= 4;		--! Proportional gain:  Kp*(2**GAINBM)
+				--KixTs_G		: integer				:= 1;		--! Integral gain:  (Ki/fs)*(2**GAINBM)
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 1 ; --!  Total number of controler used (slaves + master)
 				DELTA_I_REF_G 		: integer := 25*(2**5); --! minimum set current change (25 A) for entering hysteresis mode 
@@ -49,7 +51,7 @@ entity hybrid_top is
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G		: integer := 5*(2**5); --! Maximum current ripple after first rise (here 5A) 
 				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "111"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
-				N_CYCLE_REST_G		: integer := 3; --! Number of PWM cycles controller stays in Hystersss after phaseshift 
+				N_CYCLE_REST_G		: integer := 3; --! Number of PWM cycles controller stays in Hysterssis after phaseshift 
 				-- Variable L points
 				L1_G				: real 	  := 0.00025;--0.00013; --! Inductance [H] at point 1 
 				L2_G 				: real 	  := 0.00025;--0.000115; --! Inductance [H] at point 2 
@@ -100,6 +102,8 @@ architecture rtl of hybrid_top is
 			ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
 			GAINBM_G	: natural range 0 to 16 := 1; 		--! fractional fixed points bit
 			GAINBP_G	: natural range 1 to 16 := 2; 		--! integer bits
+			--Kprop_G		: integer				:= 4;		--! Proportional gain:  Kp*(2**GAINBM)
+			--KixTs_G		: integer				:= 1;		--! Integral gain:  (Ki/fs)*(2**GAINBM)
 			-- Hysteresis settings 
 			NO_CONTROLER_G 		: integer := 2; --!  Total number of controler used (slaves + master)
 			MY_NUMBER_G 		: integer := 1; --! index of current slave: 0 indicates master 
@@ -233,6 +237,8 @@ architecture rtl of hybrid_top is
 				ANTI_WINDUP_G		=> ANTI_WINDUP_G, 
 				GAINBM_G			=> GAINBM_G,	 	
 				GAINBP_G			=> GAINBP_G,
+				--Kprop_G				=> Kprop_G,		
+				--KixTs_G				=> KixTs_G,
 				NO_CONTROLER_G		=> NO_CONTROLER_G, -- Total number of Controler used
 				MY_NUMBER_G 		=> 0, -- indice of current slave: 0 indicates master  -- indice of current slave: 0 indicates master 
 				DELTA_I_REF_G 		=> DELTA_I_REF_G, 	

@@ -115,7 +115,7 @@ IN_REG: process(clk_i, nreset_i, nsoftreset_i)
 				out_data_del_s	<= (others => '0'); 
 			else -- now write data into registers 
 				data_valid_s 	<= data_valid_s(data_valid_s'left -1 downto 0) & data_valid_i; 
-				int_enable_s	<= int_enable_i; --AND anti_windup_s; 
+				int_enable_s	<= int_enable_i AND anti_windup_s; 
 				in_data_s 	 	<= in_data_next_s; 
 				in_data_del_s 	<= in_data_del_next_s; 
 				out_data_del_s	<= out_data_del_next_s; 

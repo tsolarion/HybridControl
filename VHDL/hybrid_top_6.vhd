@@ -49,8 +49,8 @@ entity hybrid_top is
 				--KixTs_G				: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 6 ; --!  Total number of controler used (slaves + master)
-				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (10 A) for entering hysteresis mode 
-				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (40 A) between measured and set current for entering hysteresis mode 
+				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (25 A) for entering hysteresis mode 
+				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
 				D_IOUT_MAX_G		: integer := 20*(2**5); --! Maximum current ripple after first rise (here 20A) 
 				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "011"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
@@ -85,9 +85,7 @@ entity hybrid_top is
 		i_lower_o		: out array_signed16(NO_CONTROLER_G-1 downto 0);  --! Hysteresis lower current bound No.2 (testing)
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
-		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0); 
-		iset_tot_o		: out std_logic_vector(11 downto 0); --! total measured current only integer bits
-		imeas_tot_o		: out std_logic_vector(11 downto 0)  --! total measured current only integer bits 
+		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0)
 		);			            							
 end hybrid_top;
 
@@ -211,7 +209,7 @@ architecture rtl of hybrid_top is
 	signal hss_bound_s : signed(15 downto 0); 
 	signal deltaH_ready_s: std_logic_vector(NO_CONTROLER_G-1 downto 1); --! calculation of deltaH finished 
 	signal deltaH_s 	: array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH 
-	signal imeas_tot_s: signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
+	signal imeas_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
 	signal iset_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
 -- =================== STATES ====================================================
 	begin
@@ -385,8 +383,4 @@ architecture rtl of hybrid_top is
 			deltaH_ready_o	=> deltaH_ready_s,	
 			deltaH_o 		=> deltaH_s 		
 			);
-			
-	imeas_tot_o <= std_logic_vector(resize(imeas_tot_s(imeas_tot_s'length -1 downto 5),12)); 
-	iset_tot_o  <= std_logic_vector(resize(iset_tot_s(iset_tot_s'length -1 downto 5),12)); 
-			
 end rtl; 

@@ -60,10 +60,10 @@ begin
 	-- Limitation process
 	limit_proc : process(sample_i,average_s)
 	begin 
-		if resize(average_s,IN_WIDTH+1) - resize(sample_i,IN_WIDTH+1) > to_signed(MAX_DELTA_G,IN_WIDTH+1) then -- too sharp decrease 
+		if (average_s - sample_i) > to_signed(MAX_DELTA_G,IN_WIDTH) then -- too sharp decrease 
 			sample_next_s <= average_s - to_signed(CORR_DELTA_G, IN_WIDTH); 
 			sharp_dec <= '1'; 
-		elsif  resize(sample_i,IN_WIDTH+1) - resize(average_s,IN_WIDTH+1) > to_signed(MAX_DELTA_G,IN_WIDTH+1) then -- too sharp increase
+		elsif  (sample_i - average_s) > to_signed(MAX_DELTA_G,IN_WIDTH) then -- too sharp increase
 			sample_next_s <= average_s + to_signed(CORR_DELTA_G, IN_WIDTH); 
 			sharp_inc <= '1'; 
 		else 

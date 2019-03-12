@@ -21,7 +21,7 @@ use ieee.std_logic_1164.all;
 --! Use numeric elements
 use ieee.numeric_std.all;
 
---! @brief Output result_o goes high if all data_i components went high once 
+--! @brief AND reduce of input vector with latches and reset function 
 --! @details 
 --! @details 
 
@@ -44,7 +44,7 @@ constant ONE_VECTOR_C : std_logic_vector(NO_CONTROLER_G-1 downto 0) := (others =
 -- ================== COMPONENTS =================================================
 
 -- =================== STATES ====================================================
-signal data_reg_s, data_reg_next_s : std_logic_vector(NO_CONTROLER_G-1 downto 0) := (others => '0'); 
+signal data_latch_s, data_latch_next_s : std_logic_vector(NO_CONTROLER_G-1 downto 0) := (others => '0'); 
 signal result_next_s, result_s : std_logic := '0'; 
 -- =================== SIGNALS ===================================================
 
@@ -57,39 +57,34 @@ begin
 	input_reg : process(clk_i,nreset_i)
 	begin
 		if nreset_i = '0' then
-			data_reg_s <= (others => '0'); 
+			data_latch_s <= (others => '0'); 
 			result_s <= '0'; 
 		elsif rising_edge(clk_i) then
 			if nsoftreset_i = '0' then 
-				data_reg_s <= (others => '0'); 
+				data_latch_s <= (others => '0'); 
 				result_s <= '0'; 
 			else 
-				data_reg_s <= data_reg_next_s ; 
+				data_latch_s <= data_latch_next_s ; 
 				result_s <= result_next_s;
 			end if; 
 		end if; 
 	end process; 
 			
 	--! @brief Logic 
-	proc_logic: process(data_i,data_reg_s,nsoftreset_i) 
+	proc_logic: process(data_i,data_latch_s) 
 	begin
-		data_reg_next_s <= data_reg_s; 
+		data_latch_next_s <= data_latch_s; 
 		
-		if nsoftreset_i = '0' then 
-			data_reg_next_s <= (others => '0'); 
-			result_next_s <= '0'; 
-		else		
-			for i in 0 to NO_CONTROLER_G-1 loop 
-				if (data_i(i) = '1') then 
-					data_reg_next_s(i) <= '1'; 
-				end if; 
-			end loop; 
-		
-			if data_reg_s = ONE_VECTOR_C then 
-				result_next_s <= '1'; 
-			else 
-				result_next_s <= '0';
+		for i in 0 to NO_CONTROLER_G-1 loop 
+			if (data_i(i) = '1') then 
+				data_latch_next_s(i) <= '1'; 
 			end if; 
+		end loop; 
+		
+		if data_latch_s = ONE_VECTOR_C then 
+			result_next_s <= '1'; 
+		else 
+			result_next_s <= '0';
 		end if; 
 	end process; 
 

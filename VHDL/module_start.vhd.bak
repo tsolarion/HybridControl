@@ -27,14 +27,13 @@ use ieee.numeric_std.all;
 --! @details Iref and softreset_o are activated during t1 
 
 entity module_start is 
-	generic(INW_G 			: natural := 10 --! Input data width of set current 
-			
+	generic(INW_G 			: natural := 10; --! Input data width of set current 
+			T1_G 			: natural := 20000 	--! number of clock cycles the controller is enabled
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
 			nreset_i 		: in std_logic; --! Asynchronous nreset 
 			nsoftreset_i	: in std_logic; --! synchronous nreset 
 			enable_i		: in std_logic; --! Start/enable signal 
-			T1_G 			: in integer := 20000; 	--! number of clock cycles the controller is enabled
 			iset_i			: in std_logic_vector(INW_G-1 downto 0); 
 			nsoftreset_o	: out std_logic; --! softreset for whole controller 
 			iset_o			: out std_logic_vector(INW_G-1 downto 0)
@@ -52,7 +51,7 @@ architecture structural of module_start is
 -- =================== SIGNALS ===================================================
 signal iset_s, iset_next_s : std_logic_vector(INW_G-1 downto 0) := (others => '0');
 signal nsoftreset_s,nsoftreset_next_s : std_logic := '1'; 
-signal cnt_s, cnt_next_s : integer := 0;  
+signal cnt_s, cnt_next_s : natural range 0 to T1_G := 0;  
 signal enable_vec_s : std_logic_vector(1 downto 0) := "00"; 
 
 -- ================== COMPONENTS =================================================
@@ -92,11 +91,7 @@ begin
 	elsif cnt_s > 0 and cnt_s < T1_G  then 
 		cnt_next_s <= cnt_s + 1; 
 		iset_next_s <= iset_i; 
-		nsoftreset_next_s <= '1';
-	elsif cnt_s > 0 and T1_G = 2  then 
-		cnt_next_s <= cnt_s; 
-		iset_next_s <= iset_i; 
-		nsoftreset_next_s <= '1';
+		nsoftreset_next_s <= '1';  
 	else 
 		cnt_next_s <=0; 
 		iset_next_s <= (others => '0'); 

@@ -1,6 +1,6 @@
 --==========================================================
--- Unit		:	clk_div(rtl)
--- File		:	clk_div.vhd
+-- Unit		:	runtime_limiter(rtl)
+-- File		:	runtime_limiter.vhd
 -- Purpose	:	
 -- Author	:	Michael Hersche - HPE - ETH Zuerich
 -- Device	:	Altera FPGA - Cyclone V
@@ -10,9 +10,9 @@
 -- depdcy	:	--
 --==========================================================
 
---! @file clk_div.vhd
+--! @file runtime_limiter.vhd
 --! @author Michael Hersche
---! @date  06.11.2018
+--! @date  05.11.2018
 
 -- use standard library
 library ieee;
@@ -21,29 +21,31 @@ use ieee.std_logic_1164.all;
 --! Use numeric elements
 use ieee.numeric_std.all;
 
---! @brief clk_div block for dividing clock, dont use as input of registers becaus not locked !!!!
-entity clk_div is 
+--! @brief Limit the numnber of main clock cycles the where block outputs the signals
+entity runtime_limiter is 
 	generic( 	
-			IN_FREQ_G 			: real := 100000.0;  --! input frequency in kHz
-			OUT_FREQ_G			: real := 60.0 --!   --! input frequency in kHz
+			RUN_CYCLES_G 		: integer := 20000; --! number of main clock cycles
+			NO_CONTROLER_G 		: integer := 1 --! number of controler
+			
 			);		
 	port( 	clk_i			: in std_logic; --! main system clock
 			nreset_i 		: in std_logic; --! asynchronous nreset 
-			clk_div_o		: out std_logic
+			sw_i			: in std_logic_vector(2*NO_CONTROLER_G-1 downto 0); --! PWM switch input 
+			sw_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0) --! PWM switch output  			
 			);
-end clk_div;
+end runtime_limiter;
 
-architecture structural of clk_div is
+architecture structural of runtime_limiter is
 -- ================== CONSTANTS ==================================================				
-constant TOP_CNT : natural := integer(IN_FREQ_G/(2.0*OUT_FREQ_G)); 
+
 -- ================== COMPONENTS =================================================
 	
 -- =================== STATES ====================================================
 
-
 -- =================== SIGNALS ===================================================
-signal cnt_s, cnt_next_s : natural := 0; 
-signal clk_div_s, clk_div_next_s: std_logic := '0'; 
+signal cnt_s, cnt_next_s : integer := 0; --! start counter 
+
+signal sw_s, sw_next_s:  std_logic_vector(2*NO_CONTROLER_G-1 downto 0) := (others => '0'); --! intermediate signal (to keep synchronous) 
 
 begin		
 
@@ -51,28 +53,30 @@ begin
 	REG : process(clk_i,nreset_i)
 	begin
 		if nreset_i = '0' then
-			clk_div_s 	<= '0'; 
-			cnt_s 		<= 0; 
+			cnt_s <= 0; 
+			sw_s <= (others => '0'); 
 		elsif rising_edge(clk_i) then
-			clk_div_s 	<= clk_div_next_s;  
-			cnt_s 		<= cnt_next_s;  
+			cnt_s <= cnt_next_s; 
+			sw_s <= sw_next_s; 
 		end if; 
 	end process; 
 	
-	-- State machine and counter logic 
-	counter_logic: process(cnt_s,clk_div_s) 
+	--counter logic 
+	statemachine_logic: process(cnt_s) 
 	begin
-		if cnt_s =  TOP_CNT-1 then 
-			clk_div_next_s <= not clk_div_s; 
-			cnt_next_s <= 0; 
+		-- default assignment to avoid latches 
+		if cnt_s < RUN_CYCLES_G then 
+			cnt_next_s <= cnt_s + 1; 
+			sw_next_s <= sw_i; 
 		else 
-			clk_div_next_s <= clk_div_s; 
-			cnt_next_s <= cnt_s +1; 
+			cnt_next_s <= cnt_s; 
+			sw_next_s <= (others => '0'); 
 		end if; 
+		
 	end process; 
 	
-	-- output assignments
-	clk_div_o <= clk_div_s; 
-	
+	-- output assignments 
+	sw_o <= sw_s; 
+
 			
 end structural; 

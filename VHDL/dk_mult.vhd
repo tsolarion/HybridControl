@@ -30,7 +30,6 @@ use ieee.numeric_std.all;
 entity dk_mult is 
 	generic( 	DATAWIDTH_G		: natural := 16; 	--! Data width of measurements  
 				CMAX_G 			: integer := 1666; 	--! Maximum counter value of PWM (determines PWM frequency)
-				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G 
 				NO_CONTROLER_G 	: integer := 2; 	--! Total number of controler used
 				MY_NUMBER_G 	: integer := 1  	--! Slave number 
 			);		
@@ -53,9 +52,7 @@ architecture structural of dk_mult is
 
 constant CNT_MULT_C	: integer  range 0 to 10*CMAX_G:= 20; --! number of clockcycles for multiplying DK(12 bits) with S1*S2 (34 bits)
 
-constant DK_WANTED_C: integer  range 0 to 10*CMAX_G := (CMAX_G * MY_NUMBER_G)/(NO_CONTROLER_G); --! wanted counter difference 
-constant DK_MAXNEG_C: integer range 0 to CMAX_G := integer(MAX_NEG_FAC_G*real(CMAX_G)) ; 
-
+constant DK_WANTED_C		: integer  range 0 to 10*CMAX_G := (CMAX_G * MY_NUMBER_G)/(NO_CONTROLER_G); --! wanted counter difference 
 -- ================== COMPONENTS =================================================
 
 --! @brief Signed multiplier 34 bits x 12 bits 
@@ -88,6 +85,9 @@ signal dk_factor_ready_next_s, dk_factor_ready_s: std_logic := '0'; -- latched d
 
 signal hyst_start_s : std_logic_vector(1 downto 0) := "00"; -- for edge detection 
 
+signal master_back_s, master_back_next_s : std_logic := '0'; 
+signal slave_back_s, slave_back_next_s : std_logic := '0'; 
+
 begin		
 
 
@@ -103,6 +103,8 @@ begin
 			result_s	<= (others => '0'); 
 			dk_factor_ready_s <= '0'; 
 			hyst_start_s <= "00"; 
+			master_back_s<= '0'; 
+			slave_back_s <= '0'; 
 		elsif rising_edge(clk_i) then
 			dk_state_s 	<= dk_state_next_s; 
 			dk_cnt_s	<= dk_cnt_next_s;
@@ -111,13 +113,13 @@ begin
 			result_s	<= result_next_s; 
 			dk_factor_ready_s <= dk_factor_ready_next_s; 
 			hyst_start_s <= hyst_start_s(0) & hyst_i; 	
+			master_back_s<= master_back_next_s; 
+			slave_back_s <= slave_back_next_s; 
 		end if; 
 	end process; 
 
 	--! @brief  dk state machine and counter logic 
-	dk_logic: process(dk_state_s,dk_cnt_s,t2_start_ma_i,t2_start_sl_i, 
-						hyst_start_s,dk_factor_i,dk_factor_ready_i,dk_factor_ready_s,
-						x1_s,x2_s,result_s,y1_s) 
+	dk_logic: process(dk_state_s,dk_cnt_s,t2_start_ma_i,t2_start_sl_i, hyst_start_s,dk_factor_i,dk_factor_ready_i,dk_factor_ready_s,x1_s,x2_s,result_s,y1_s,master_back_s,slave_back_s) 
 	begin
 		-- default assignments for avoiding latches 
 		dk_state_next_s <= dk_state_s; 
@@ -132,7 +134,18 @@ begin
 		else 
 			dk_factor_ready_next_s <= dk_factor_ready_s; 	
 		end if; 
-				
+		
+		-- Locic for updating x2_next which determines the adjustment 
+		if CMAX_G - DK_WANTED_C + dk_cnt_s < DK_WANTED_C - dk_cnt_s then 
+			master_back_next_s<= '1';   
+		else master_back_next_s<= '0' ; 
+		end if; 
+		if CMAX_G - DK_WANTED_C + CMAX_G - dk_cnt_s < DK_WANTED_C - CMAX_G + dk_cnt_s then 
+			slave_back_next_s <= '1'; 
+		else slave_back_next_s <= '0'; 
+		end if; 
+		
+		
 		-- statemachine logic 
 		case dk_state_s is 
 			when IDLE => 
@@ -174,14 +187,10 @@ begin
 					dk_state_next_s <= MULT; 
 					x1_next_s <= std_logic_vector(dk_factor_i); 
 					-- decide which direction the correction has to be done 
-					if ((dk_cnt_s-DK_WANTED_C <= DK_MAXNEG_C) and (dk_cnt_s > DK_WANTED_C)) then -- go backwards 
-						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - dk_cnt_s,12)); 
-					elsif ((DK_WANTED_C+DK_MAXNEG_C>CMAX_G) and (dk_cnt_s <= DK_WANTED_C + DK_MAXNEG_C - CMAX_G)) then -- go backwards 
+					if master_back_s = '1' then -- go backwards 
 						x2_next_s <= std_logic_vector(to_signed(-CMAX_G +DK_WANTED_C - dk_cnt_s,12)); 
-					elsif DK_WANTED_C >= dk_cnt_s then -- go forward
+					else -- go forward
 						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - dk_cnt_s,12)); 
-					else 
-						x2_next_s <= std_logic_vector(to_signed(CMAX_G - dk_cnt_s + DK_WANTED_C  ,12)); 
 					end if; 
 				end if; 
 				
@@ -191,12 +200,10 @@ begin
 					dk_state_next_s <= MULT;
 					x1_next_s <= std_logic_vector(dk_factor_i); 
 					-- decide which direction the correction has to be done 
-					if(CMAX_G - DK_WANTED_C - dk_cnt_s <= DK_MAXNEG_C) and (CMAX_G-dk_cnt_s >= DK_WANTED_C) then -- go backwards 
-						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C + dk_cnt_s-CMAX_G,12)); 
-					elsif dk_cnt_s >= CMAX_G - DK_WANTED_C then -- go forward 
+					if slave_back_s = '1' then -- go backwards 
+						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C + dk_cnt_s,12)); 
+					else -- go forward
 						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C - CMAX_G + dk_cnt_s ,12)); 
-					else 
-						x2_next_s <= std_logic_vector(to_signed(DK_WANTED_C+ dk_cnt_s ,12)); 
 					end if; 
 				end if; 
 			-- in MULT, dk_cnt_s is used as supervision 

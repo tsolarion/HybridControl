@@ -7,7 +7,7 @@
 -- EDA syn	:	Altera Quartus II
 -- EDA sim	:	Modelsim SE 10.1c
 -- misc		:	--
--- depdcy	:	my_31b_divider, my_17_16_mult
+-- depdcy	:	--
 --==========================================================
 
 --! @file dutycycle_calc.vhd
@@ -63,9 +63,6 @@ constant NO_SWITCH_C : std_logic_vector(1 downto 0) := "00";
 constant ADD_SWITCH_C: std_logic_vector(1 downto 0) := "01"; 
 constant SUB_SWITCH_C: std_logic_vector(1 downto 0) := "10"; 
 
--- Timer Top value := 1 PWM cycle 
-constant CNT_TOP_C: integer := (10**8/60000); 
-
 
 -- =================== STATES ====================================================
 type overfl_superv is (IDLE,OVERFLOW, UNDERFLOW); 	
@@ -84,7 +81,7 @@ signal denum_s, denum_next_s 		: signed(DIV_LENGTH-1 downto 0) := (others => '0'
 -- Counter logic 
 signal cnt_s,cnt_next_s : integer := 0; -- counter waiting until calculation done 
 signal div_ready_s, div_ready_next_s : std_logic := '0'; -- indicates calculation done (Timer at UP)
-
+signal counter_on_s, counter_on_next_s : std_logic := '0'; -- status of counter 
 -- Duty 
 signal d_s, d_next_s : std_logic_vector(DIV_LENGTH-1 downto 0) := (others => '0'); -- output of divider (with register for timing) 
 signal d_out_s,d_out_next_s : unsigned(OUTW_G-1 downto 0) := (others => '0'); -- output of this block  
@@ -97,12 +94,6 @@ signal vh_p_vl_s, vh_p_vl_next_s : signed(INW_G downto 0) := (others => '0'); --
 signal interlock_comp_s : std_logic_vector(32 downto 0) := (others => '0'); -- (vbush_i + vbusl_i)*INTERLOCK_COMP_C 
 constant COMP_THRESH_C : signed(INW_G-1 downto 0) := to_signed(20*(2**5),INW_G); 
 constant INTERLOCK_COMP_C : signed(INW_G-1 downto 0) := to_signed(NINTERLOCK_G*6*(2**OUTW_G)/(10000), INW_G); --NINTERLOCK_G * fs*(2**11)/fclk = NINTERLOCK_G * 60kHz*(2**11)/100MHz  
-
--- timer 
-signal cnt_start_s						: std_logic := '0'; 
-signal cnt_end_s, cnt_end_next_s		: std_logic := '0'; 
-signal cnt_val_s, cnt_val_next_s		: integer range 0 to CNT_TOP_C := 0; 
-
 
 -- ================== COMPONENTS =================================================
 component my_31b_divider is 
@@ -124,34 +115,8 @@ component my_17_16_mult is
 end component;
 
 begin		
-
-	CNT_LOG: process( cnt_val_s, cnt_start_s)
-	begin 
-		if cnt_start_s = '1' then 
-			cnt_val_next_s <= 0; 
-			cnt_end_next_s 	   <= '0'; 
-		elsif cnt_val_s < CNT_TOP_C then 
-			cnt_val_next_s <= cnt_val_s + 1; 
-			cnt_end_next_s 	   <= '0'; 
-		else 
-			cnt_val_next_s <= cnt_val_s; 
-			cnt_end_next_s 	   <= '1'; 
-		end if; 
-	end process; 
 	
-	CNT_REG: process(clk_i,nreset_i)
-	begin 
-		if nreset_i = '0' then 
-			cnt_end_s <= '0';
-			cnt_val_s <= CNT_TOP_C;
-		elsif rising_edge(clk_i) then 
-			cnt_end_s   <= cnt_end_next_s;
-			cnt_val_s	<= cnt_val_next_s;	
-		end if; 
-	end process; 
-	
-	
-	IN_PROC: process(pi_i,vc_i,vbusl_i,vbush_i,pi_valid_s,switch_s,switch_i,vc_switch_s,vc_switch_i,pi_s,vc_s,vbush_s,vbusl_s,vbusl_11_s,div_ready_s)
+	IN_PROC: process(pi_i,vc_i,vbusl_i,vbush_i,pi_valid_s,switch_s,switch_i,vc_switch_s,vc_switch_i,pi_s,vc_s,vbush_s,vbusl_s,vbusl_11_s)
 		begin 
 			-- default assignments to avoid latches  
 			pi_next_s		<= 	pi_s; 		
@@ -161,47 +126,28 @@ begin
 			vbusl_next_s 	<=  vbusl_s;  	
 			vbusl_11_next_s <=  vbusl_11_s;  
 			vh_p_vl_next_s	<= resize(vbush_i,INW_G+1) + resize(vbusl_i,INW_G+1); 
-			cnt_start_s		<= '0'; 
 			
-			-- load data if new PI value valid 
-			if pi_valid_s = "01" then -- only new calculation if  
+			-- load data if new PI value valid or switch state changed 
+			if pi_valid_s = "01" or (switch_s /= switch_i) then 
 				-- shift nominator by 11 bits and resize to DIV_LENGTH
 				pi_next_s 	<= resize(pi_i & ZEROS_11_C,DIV_LENGTH); 
+				vc_next_s 	<= resize(vc_i & ZEROS_11_C,DIV_LENGTH);
 				vbusl_11_next_s <= resize(vbusl_i & ZEROS_11_C,DIV_LENGTH);
-					-- resize denominator 
-				vbush_next_s	<= resize(vbush_i,DIV_LENGTH);
-				vbusl_next_s	<= resize(vbusl_i,DIV_LENGTH);
 				
-				if cnt_end_s = '1' then -- only load new vc value if waiting time expired  
-					vc_next_s 	<= resize(vc_i & ZEROS_11_C,DIV_LENGTH);
-				
-					-- cases for input switch 
-					case switch_i is 
-						when NO_SWITCH_C => 
-							vc_switch_next_s <= (others => '0');  
-						when ADD_SWITCH_C => 
-							vc_switch_next_s <= resize(vc_switch_i & ZEROS_11_C,DIV_LENGTH);
-						when SUB_SWITCH_C => 
-							vc_switch_next_s <= -resize((vc_switch_i & ZEROS_11_C),DIV_LENGTH);
-						when others => 
-							vc_switch_next_s <= (others => '0');  
-					end case;       
-					
-				end if; 
-			
-			-- if switch state changed from "00" to a high value "01" or "10" (rising edge) 
-			elsif switch_s /= switch_i and switch_s = NO_SWITCH_C then 
-				cnt_start_s <= '1'; -- start the counter 
-				--  only update vc_switch_next_s, the other values are kept from the last period 
+				-- cases for input switch 
 				case switch_i is 
+					when NO_SWITCH_C => 
+						vc_switch_next_s <= (others => '0');  
 					when ADD_SWITCH_C => 
 						vc_switch_next_s <= resize(vc_switch_i & ZEROS_11_C,DIV_LENGTH);
 					when SUB_SWITCH_C => 
-						vc_switch_next_s <= -resize((vc_switch_i & ZEROS_11_C),DIV_LENGTH);
+						vc_switch_next_s <= resize(-(vc_switch_i & ZEROS_11_C),DIV_LENGTH);
 					when others => 
 						vc_switch_next_s <= (others => '0');  
 				end case;       
-				
+				-- resize denominator 
+				vbush_next_s	<= resize(vbush_i,DIV_LENGTH);
+				vbusl_next_s	<= resize(vbusl_i,DIV_LENGTH);
 			end if; 
 				
 		end process; 	
@@ -253,6 +199,7 @@ begin
 				d_s		<= (others => '0');  
 				d_out_s <= (others => '0'); 
 				cnt_s	<= 0; 
+				counter_on_s <= '0'; 
 				out_state_s <= IDLE; 
 				div_ready_s <= '0'; 
 			elsif rising_edge(clk_i) then 
@@ -261,6 +208,7 @@ begin
 				d_s		<= d_next_s; 
 				d_out_s <= d_out_next_s; 
 				cnt_s	<= cnt_next_s; 
+				counter_on_s <= counter_on_next_s; 
 				out_state_s <= out_state_next_s; 
 				div_ready_s <= div_ready_next_s; 
 			end if; 
@@ -268,25 +216,26 @@ begin
 		
 	-- Calculations of numerator and denominator
 	-- Process counter 
-	CALC_LOGIC_PROC: process(vc_switch_s,iset_i,pi_s,vc_s, vbush_s, vbusl_s,vbusl_11_s,cnt_s,cnt_next_s, pi_valid_s,nsoftreset_i,interlock_comp_s, switch_i,switch_s)
+	CALC_LOGIC_PROC: process(iset_i,pi_s,vc_s, vbush_s, vbusl_s,vbusl_11_s,cnt_s,cnt_next_s, pi_valid_s,nsoftreset_i,counter_on_s,interlock_comp_s)
 		begin
 		
 			div_ready_next_s <= '0'; 
 			
-			-- Artihmetic for nummerator and denominator 
 			if iset_i > COMP_THRESH_C then 
-				num_next_s 		<= vc_switch_s+pi_s + vc_s + vbusl_11_s + resize(signed(interlock_comp_s), DIV_LENGTH); 
+				num_next_s 		<= pi_s + vc_s + vbusl_11_s + resize(signed(interlock_comp_s), DIV_LENGTH); 
 			else 
-				num_next_s 		<= vc_switch_s+pi_s + vc_s + vbusl_11_s; 
+				num_next_s 		<= pi_s + vc_s + vbusl_11_s; 
 			end if; 
 			denum_next_s 	<= vbush_s + vbusl_s; 
+			counter_on_next_s <= counter_on_s; 
 			
-			-- Counter logic 
 			if nsoftreset_i = '0' then 
 				cnt_next_s <= 0; 
-			elsif  pi_valid_s = "01" or (switch_s /= switch_i and switch_s = NO_SWITCH_C)  then 
+				counter_on_next_s <= '0'; -- turn counter off 
+			elsif  pi_valid_s = "01"   then 
 				cnt_next_s <= 0; 
-			elsif cnt_s <= DIV_DELAY then 
+				counter_on_next_s <= '1';
+			elsif cnt_s <= DIV_DELAY and counter_on_s = '1' then 
 				cnt_next_s <= cnt_s +1; 
 			else 
 				cnt_next_s <= cnt_s; 
