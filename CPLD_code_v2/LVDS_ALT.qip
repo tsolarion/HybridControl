@@ -1,0 +1,9 @@
+set_global_assignment -name IP_TOOL_NAME "ALTLVDS_TX"
+set_global_assignment -name IP_TOOL_VERSION "16.1"
+set_global_assignment -name IP_GENERATED_DEVICE_FAMILY "{MAX V}"
+set_global_assignment -name VHDL_FILE [file join $::quartus(qip_path) "LVDS_ALT.vhd"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "LVDS_ALT.bsf"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "LVDS_ALT_inst.vhd"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "LVDS_ALT.inc"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "LVDS_ALT.cmp"]
+set_global_assignment -name MISC_FILE [file join $::quartus(qip_path) "LVDS_ALT.ppf"]

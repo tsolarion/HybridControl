@@ -1,0 +1,85 @@
+# -------------------------------------------------------------------------- #
+#
+# Copyright (C) 2017  Intel Corporation. All rights reserved.
+# Your use of Intel Corporation's design tools, logic functions 
+# and other software and tools, and its AMPP partner logic 
+# functions, and any output files from any of the foregoing 
+# (including device programming or simulation files), and any 
+# associated documentation or information are expressly subject 
+# to the terms and conditions of the Intel Program License 
+# Subscription Agreement, the Intel Quartus Prime License Agreement,
+# the Intel MegaCore Function License Agreement, or other 
+# applicable license agreement, including, without limitation, 
+# that your use is for the sole purpose of programming logic 
+# devices manufactured by Intel and sold by Intel or its 
+# authorized distributors.  Please refer to the applicable 
+# agreement for further details.
+#
+# -------------------------------------------------------------------------- #
+#
+# Quartus Prime
+# Version 16.1.2 Build 203 01/18/2017 SJ Standard Edition
+# Date created = 13:27:54  May 14, 2018
+#
+# -------------------------------------------------------------------------- #
+#
+# Notes:
+#
+# 1) The default values for assignments are stored in the file:
+#		CPLD_current_assignment_defaults.qdf
+#    If this file doesn't exist, see file:
+#		assignment_defaults.qdf
+#
+# 2) Altera recommends that you do not modify this file. This
+#    file is updated automatically by the Quartus Prime software
+#    and any changes you make may be lost or overwritten.
+#
+# -------------------------------------------------------------------------- #
+
+
+set_global_assignment -name FAMILY "MAX V"
+set_global_assignment -name DEVICE 5M570ZT100C5
+set_global_assignment -name TOP_LEVEL_ENTITY CPLD_current_top
+set_global_assignment -name ORIGINAL_QUARTUS_VERSION 16.1.2
+set_global_assignment -name PROJECT_CREATION_TIME_DATE "13:27:54  MAY 14, 2018"
+set_global_assignment -name LAST_QUARTUS_VERSION "16.1.2 Standard Edition"
+set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name ERROR_CHECK_FREQUENCY_DIVISOR "-1"
+set_global_assignment -name MIN_CORE_JUNCTION_TEMP 0
+set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"
+set_location_assignment PIN_74 -to CLK_ADC_P
+set_instance_assignment -name IO_STANDARD "2.5 V" -to CLK_ADC_P
+set_location_assignment PIN_82 -to CON_ADC
+set_instance_assignment -name IO_STANDARD "2.5 V" -to CON_ADC
+set_location_assignment PIN_78 -to DATA_ADC_raw_p
+set_instance_assignment -name IO_STANDARD "2.5 V" -to DATA_ADC_raw_p
+set_location_assignment PIN_35 -to Data_Out_P
+set_location_assignment PIN_36 -to Data_Out_N
+set_location_assignment PIN_29 -to CLK_FPGA
+set_instance_assignment -name IO_STANDARD "2.5 V" -to CLK_FPGA
+set_instance_assignment -name IO_STANDARD "2.5 V" -to Data_Out_P
+set_instance_assignment -name IO_STANDARD "2.5 V" -to Data_Out_N
+set_location_assignment PIN_28 -to CLK_FPGA_p
+set_instance_assignment -name IO_STANDARD "2.5 V" -to CLK_FPGA_p
+set_location_assignment PIN_64 -to clk_osci
+set_instance_assignment -name IO_STANDARD "1.2 V" -to clk_osci
+set_global_assignment -name VHDL_FILE serialize16b20b.vhd
+set_global_assignment -name VHDL_FILE sync.vhd
+set_global_assignment -name VHDL_FILE clk_div.vhd
+set_global_assignment -name VHDL_FILE Ignore_LSB.vhd
+set_global_assignment -name QIP_FILE SignalProbe4/synthesis/SignalProbe4.qip
+set_global_assignment -name VHDL_FILE moving_avg.vhd
+set_global_assignment -name QIP_FILE SignalProbe3/synthesis/SignalProbe3.qip
+set_global_assignment -name VHDL_FILE statemachine.vhd
+set_global_assignment -name BDF_FILE CPLD_current_top.bdf
+set_global_assignment -name SIGNALTAP_FILE output_files/stp5.stp
+set_global_assignment -name QIP_FILE ConstantData.qip
+set_global_assignment -name CDF_FILE output_files/Chain1.cdf
+set_global_assignment -name SOURCE_FILE output_files/Spf4.spf
+set_global_assignment -name CDF_FILE output_files/Chain2.cdf
+set_global_assignment -name CDF_FILE output_files/Chain3.cdf
+set_global_assignment -name CDF_FILE output_files/Chain4.cdf
+set_global_assignment -name CDF_FILE Chain5.cdf
+set_global_assignment -name SIGNALTAP_FILE stp1.stp
+set_global_assignment -name CDF_FILE Chain2.cdf

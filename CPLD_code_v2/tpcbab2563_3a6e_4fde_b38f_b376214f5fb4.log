@@ -1,0 +1,11 @@
+if { [catch {vsimulink cpld_current_top -t 1ns -novopt  } errmsg] } {
+    echo "Loading simulation and HDL Verifier library failed."; 
+    echo $errmsg; 
+    quit -f; 
+}
+# vsim -foreign {simlinkserver {C:/Program Files/MATLAB/R2016b_x64/toolbox/edalink/extensions/modelsim/windows64/liblfmhdls_gcc450.dll}  ; -batch  ; -socket 65400 } -t 1ns -novopt cpld_current_top 
+# ** Error: Failure to obtain a VHDL simulation license. Unable to checkout any of these license features:  qhsimvh or msimhdlsim
+# Error loading design
+# Error: Error loading design 
+#        Executing onElabError command(s): echo "Loading simulation and HDL Verifier library failed."; quit -f 
+# Loading simulation and HDL Verifier library failed. 

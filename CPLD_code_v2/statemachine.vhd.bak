@@ -1,0 +1,155 @@
+LIBRARY IEEE;
+USE ieee.std_logic_1164.all;
+USE ieee.numeric_std.all;
+
+ENTITY statemachine IS
+	GENERIC(
+		bits_resolution : integer := 14; 
+		CONV_CYCLE_G	: integer := 3; -- wait 4 cycles / it's maybe 3... 
+		CONV_WAIT_CYCLE_G : integer:= 2; -- wait 2 cycles
+		Total_cycle_G : integer := 20 -- total cycle count / it's maybe 20 (with 21 it is 4.76 MSps)
+		);
+
+  PORT(
+			clk : IN STD_LOGIC;  	--clock
+			data_i_p : IN STD_LOGIC;  --input p
+			data_i_n : IN STD_LOGIC;  --input n
+			--read_i : IN STD_LOGIC; --read input external
+			--nreset : IN STD_LOGIC; --reset
+			cnv_o : OUT STD_LOGIC;
+			sample_o : OUT STD_LOGIC_VECTOR(12 downto 0);
+			clock_MAF : OUT STD_LOGIC;
+			raw_stream_out : OUT	STD_LOGIC_VECTOR(19 downto 0);
+			sck_oP : OUT STD_LOGIC;	
+			sck_oN : OUT STD_LOGIC
+		); --output
+	  
+END statemachine;
+
+ARCHITECTURE logic OF statemachine IS
+
+	type my_states IS (IDLE, CONV, WAIT_SAMPLE, SAMPLE, WAIT_CONV); 
+	signal state_s, state_next_s : my_states := CONV; 
+	signal cnt_s, cnt_next_s : integer := 0; 
+	signal raw_bit: STD_LOGIC :='0';
+	signal raw_ADC_stream : STD_LOGIC_VECTOR(Total_cycle_G-1 DOWNTO 0) := (others => '0');
+	signal raw_ADC_stream_out_buffer : STD_LOGIC_VECTOR(Total_cycle_G-1 DOWNTO 0) := (others => '0');
+	signal ADC_stream_out: STD_LOGIC_VECTOR(12 DOWNTO 0) := (others => '0');
+	signal clock_MAF_s: STD_LOGIC :='0';
+	SIGNAL CNV : STD_LOGIC := '0'; 
+	signal SCK : STD_LOGIC := '1'; -- SCK signal
+	-- definitions for testing of read_i and nreset
+	signal read_i : STD_LOGIC := '1';
+	signal nreset : STD_LOGIC := '1';
+
+BEGIN
+REG: PROCESS(clk)--, nreset)
+	begin 
+		--if nreset= '0' then 
+		--	state_s <= IDLE;
+		--	raw_ADC_stream <= (others => '0'); 
+		--	cnt_s <= 0;
+		if rising_edge(clk) then 
+			state_s <= state_next_s; 
+			raw_ADC_stream <= raw_ADC_stream(Total_cycle_G-2 DOWNTO 0) & raw_bit;
+			cnt_s <= cnt_next_s;
+		end if; 
+	end process; 
+	
+IN_LOG: PROCESS(clk)
+	begin 
+	-- default assignment 
+		state_next_s <= state_s;
+		cnt_next_s <= cnt_s;
+		if data_i_p > data_i_n then
+			raw_bit <= '1'; 
+		elsif data_i_p <data_i_n then
+			raw_bit <= '0'; 
+		else 
+			raw_bit	<=	raw_bit;
+		end if;
+		clock_MAF_s <= '0';
+	-- logic
+	if rising_edge(clk) then
+		if state_next_s <= WAIT_SAMPLE and cnt_s = CONV_CYCLE_G-1  then
+			ADC_stream_out <= raw_ADC_stream(16 downto 4);-- Register the new sample!
+			raw_ADC_stream_out_buffer <= raw_ADC_stream;
+			clock_MAF_s <= '1'; -- Output the sample clock
+		else
+			clock_MAF_s <='0';
+			ADC_stream_out <= ADC_stream_out;
+			
+		end if;
+	else
+			clock_MAF_s <=clock_MAF_s;
+			ADC_stream_out <= ADC_stream_out;
+	end if;
+		
+		case state_s is 
+		
+			when IDLE => 
+				if read_i = '1' then
+					state_next_s <= CONV;
+				else
+					state_next_s <= IDLE;
+				end if;
+				
+			when CONV => --waits 3 cycles ...
+				if cnt_s >= CONV_CYCLE_G-1 then 
+					state_next_s <= WAIT_SAMPLE;
+					cnt_next_s <= 0;
+				else 
+					cnt_next_s <= cnt_s+ 1;
+				end if;
+				
+			when WAIT_SAMPLE => --waits 1 cycle...Push the right bits to the output.
+				state_next_s <= SAMPLE;
+				
+			when SAMPLE => --Go into sample mode. This is 14 clock cycles...
+				if cnt_s >= bits_resolution-1 then 
+					cnt_next_s <= 0;
+					state_next_s <= WAIT_CONV;
+				else 
+					cnt_next_s <= cnt_s+ 1; 
+					--raw_bit <= data_i; 
+				end if;
+			when WAIT_CONV => -- Wait for 2 cycles more
+				if cnt_s >= CONV_WAIT_CYCLE_G-1 then 
+					state_next_s <= CONV;
+					cnt_next_s <= 0;
+				else 
+					cnt_next_s <= cnt_s+ 1;
+				end if;
+			
+		end case;
+end process; 
+	
+OUT_LOG: PROCESS (clk,state_s)
+	begin
+		case state_s is 
+			when CONV => 
+				CNV <= '1';
+				SCK <= '1';
+			when WAIT_SAMPLE =>
+				CNV <= '0';
+				SCK <= '1';
+			when SAMPLE => 
+				CNV <= '0';
+				SCK <= clk;
+			when WAIT_CONV => 
+				CNV <= '0';
+				SCK <= '1';
+			when others => 
+				CNV <= '1';
+				SCK <= '1';
+		end case;
+end process;
+
+-- signals to outputs
+cnv_o <= CNV;
+sck_oP <= SCK;
+sck_oN <= not(SCK);
+sample_o <= ADC_stream_out;
+clock_MAF <=clock_MAF_s;
+raw_stream_out <= raw_ADC_stream;
+END logic;

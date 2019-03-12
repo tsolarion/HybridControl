@@ -1,0 +1,65 @@
+
+-- Works only if we assume that parallel_data does not change all the time.
+
+library ieee;
+library work;
+
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity serialize16b20b is
+	generic(
+		n_bits_g 		: integer range 1 to 32 := 13
+	);
+	
+	port(
+		reset_n 			: in std_logic;
+		clk 				: in std_logic;
+		parallel_data 	: in std_logic_vector(n_bits_g - 1 downto 0);	
+		serial_data 	: out std_logic
+	);
+end serialize16b20b;
+
+architecture rtl of serialize16b20b is
+
+signal register_s : std_logic_vector(n_bits_g - 1 downto 0) := (others => '0');
+signal counter_s	: integer range 0 to n_bits_g := 0;
+
+begin
+
+proc_counter : process(clk, reset_n)
+begin
+	if reset_n = '0' then
+		counter_s <= n_bits_g - 1;
+	elsif rising_edge(clk) then
+		if counter_s = 0 then
+			counter_s <= n_bits_g - 1;
+		else
+			counter_s <= counter_s - 1;
+		end if;
+	end if;
+end process;
+
+proc_read_inputs : process(clk, reset_n)
+begin
+	if reset_n = '0' then
+		register_s <= (others => '0');
+	elsif rising_edge(clk) then
+		if counter_s = 0 then
+			register_s <= parallel_data;
+		else	
+			register_s <= register_s;
+		end if;
+	end if;
+end process;
+
+proc_data_out : process(clk, reset_n)
+begin
+	if reset_n = '0' then
+		serial_data <= '0';
+	elsif rising_edge(clk) then
+		serial_data <= register_s(counter_s);
+	end if;
+end process;
+
+end rtl;

@@ -1,0 +1,12 @@
+{C:/Users/tsolarig/Desktop/Current Sensor/CPLD_code/tb_moving_avg.vhd} {2 {vcom -work work -2002 -explicit -vopt {C:/Users/tsolarig/Desktop/Current Sensor/CPLD_code/tb_moving_avg.vhd}
+Model Technology ModelSim SE-64 vcom 10.1c Compiler 2012.07 Jul 27 2012
+-- Loading package STANDARD
+-- Loading package TEXTIO
+-- Loading package std_logic_1164
+-- Loading package NUMERIC_STD
+-- Compiling entity tb_MAF
+-- Compiling architecture logic of tb_MAF
+** Warning: [4] C:/Users/tsolarig/Desktop/Current Sensor/CPLD_code/tb_moving_avg.vhd(40): (vcom-1207) An abstract literal and an identifier must have a separator between them.
+** Warning: [4] C:/Users/tsolarig/Desktop/Current Sensor/CPLD_code/tb_moving_avg.vhd(41): (vcom-1207) An abstract literal and an identifier must have a separator between them.
+
+} {} {}}
