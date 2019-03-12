@@ -37,7 +37,7 @@ entity top1 is
 				MEAS_I_DATAWIDTH_G 	: integer range 8 to 16 := 13;  --! Data width of current measurements  
 				MEAS_V_DATAWIDTH_G	: integer range 8 to 16 := 12; --! Data width of voltage measurements 
 				DATAWIDTH_G			: integer := 16; --! General internal datawidth: THIS HAS TO BE KEPT CONSTANT
-				
+				TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
 				-- PI settings 
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
 				GAINBM_G	: natural range 0 to 16 := 12; 			--! fractional fixed points bit
@@ -62,13 +62,14 @@ entity top1 is
 		hyst_enable_i	: in std_logic; --! enables hysteresis mode			
 		vbush_i    		: in unsigned(MEAS_V_DATAWIDTH_G-1 downto 0); --! V1 measured voltage                                    			
 		vbusl_i     	: in unsigned(MEAS_V_DATAWIDTH_G-1 downto 0); --! V2 measured voltage 
-		vc_i 			: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Vc measured voltage
+		vc_i 				: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Vc measured voltage
 		vc_switch_i 	: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! switchable input signal vc (00: no operation, 01: +, 10: -)
 		switch_i		: in std_logic_vector(1 downto 0); -- switch signal 		
 		imeas_i			: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Measured current  
 		iset_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Set current No.1 
 		kprop_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control proportional gain:  kprop_i = Kp*(2**GAINBM)
-		kixts_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control integral gain:  kixts = (Ki/fs)*(2**GAINBM)	
+		kixts_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control integral gain:  kixts = (Ki/fs)*(2**GAINBM)
+		Rset_i 			: in unsigned(DATAWIDTH_G-1 downto 0);        --! Rset measured voltage
 		pwm_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0) --! High switch output
 		);			            							
 end top1;
@@ -81,7 +82,7 @@ component hybrid_top is
 				NINTERLOCK_G		: integer := 1; --50
 				MEAS_I_DATAWIDTH_G 	: integer range 8 to 16 := 13;  --! Data width of current measurements  
 				MEAS_V_DATAWIDTH_G	: integer range 8 to 16 := 12; --! Data width of voltage measurements 
-				
+				TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
 				DATAWIDTH_G			: integer := 16; --! General internal datawidth: THIS HAS TO BE KEPT CONSTANT
 				-- PI settings 
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
@@ -120,6 +121,7 @@ component hybrid_top is
 		i_lower_o		: out array_signed16(NO_CONTROLER_G-1 downto 0);  --! Hysteresis lower current bound No.2 (testing)
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
+		Rset_i 			: in unsigned(DATAWIDTH_G-1 downto 0);        --! Rset measured voltage
 		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0)
 		);			            							
 end component;
@@ -151,7 +153,8 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		=> NO_CONTROLER_G, 		
 				DELTA_I_REF_G 		=> DELTA_I_REF_G, 		
-				DELTA_I_THR_G 		=> DELTA_I_THR_G, 		
+				DELTA_I_THR_G 		=> DELTA_I_THR_G,
+	         TIME_DELAY_CONSTANT => TIME_DELAY_CONSTANT,
 				DELTA_VC_G			=> DELTA_VC_G,			
 				D_IOUT_MAX_G		=> D_IOUT_MAX_G,		
 				HYST_COND_SEL_G		=> HYST_COND_SEL_G,		
@@ -173,7 +176,8 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 		iset_i			=> iset_i,		
 		kprop_i			=>	kprop_i,			
 		kixts_i			=> kixts_i,		
-		pwm_o			=> pwm_o,			
+		pwm_o			=> 	pwm_o,
+		Rset_i 		=>		Rset_i,
 		count_o			=> open, 			
 		i_upper_o		=> open,		
 		i_lower_o		=> open,		

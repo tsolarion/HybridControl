@@ -1,5 +1,5 @@
 Assembler report for 1module
-Thu Feb 21 15:01:10 2019
+Thu Mar 07 11:34:30 2019
 Quartus Prime Version 16.1.2 Build 203 01/18/2017 SJ Standard Edition
 
 
@@ -39,7 +39,7 @@ agreement for further details.
 +---------------------------------------------------------------+
 ; Assembler Summary                                             ;
 +-----------------------+---------------------------------------+
-; Assembler Status      ; Successful - Thu Feb 21 15:01:10 2019 ;
+; Assembler Status      ; Successful - Thu Mar 07 11:34:30 2019 ;
 ; Revision Name         ; 1module                               ;
 ; Top-level Entity Name ; schem_toplevel                        ;
 ; Family                ; Cyclone IV E                          ;
@@ -79,8 +79,8 @@ agreement for further details.
 ; Option         ; Setting                                                                               ;
 +----------------+---------------------------------------------------------------------------------------+
 ; Device         ; EP4CE115F29C7                                                                         ;
-; JTAG usercode  ; 0x00D94C77                                                                            ;
-; Checksum       ; 0x00D94C77                                                                            ;
+; JTAG usercode  ; 0x011AA139                                                                            ;
+; Checksum       ; 0x011AA139                                                                            ;
 +----------------+---------------------------------------------------------------------------------------+
 
 
@@ -90,15 +90,15 @@ agreement for further details.
 Info: *******************************************************************
 Info: Running Quartus Prime Assembler
     Info: Version 16.1.2 Build 203 01/18/2017 SJ Standard Edition
-    Info: Processing started: Thu Feb 21 15:01:04 2019
+    Info: Processing started: Thu Mar 07 11:34:24 2019
 Info: Command: quartus_asm --read_settings_files=off --write_settings_files=off 1module -c 1module
 Warning (18236): Number of processors has not been specified which may cause overloading on shared machines.  Set the global assignment NUM_PARALLEL_PROCESSORS in your QSF to an appropriate value for best performance.
 Info (115031): Writing out detailed assembly data for power analysis
 Info (115030): Assembler is generating device programming files
 Info: Quartus Prime Assembler was successful. 0 errors, 1 warning
-    Info: Peak virtual memory: 613 megabytes
-    Info: Processing ended: Thu Feb 21 15:01:10 2019
-    Info: Elapsed time: 00:00:06
+    Info: Peak virtual memory: 649 megabytes
+    Info: Processing ended: Thu Mar 07 11:34:31 2019
+    Info: Elapsed time: 00:00:07
     Info: Total CPU time (on all processors): 00:00:07
 
 

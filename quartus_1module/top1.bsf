@@ -130,6 +130,13 @@ agreement for further details.
 		(line (pt 0 256)(pt 16 256)(line_width 3))
 	)
 	(port
+		(pt 0 272)
+		(input)
+		(text "Rset_i[datawidth_g-1..0]" (rect 0 0 94 12)(font "Arial" ))
+		(text "Rset_i[datawidth_g-1..0]" (rect 21 267 115 279)(font "Arial" ))
+		(line (pt 0 272)(pt 16 272)(line_width 3))
+	)
+	(port
 		(pt 368 32)
 		(output)
 		(text "pwm_o[2*no_controler_g-1..0]" (rect 0 0 115 12)(font "Arial" ))
@@ -159,6 +166,11 @@ agreement for further details.
 	(parameter
 		"DATAWIDTH_G"
 		"16"
+		""
+		(type "PARAMETER_SIGNED_DEC")	)
+	(parameter
+		"TIME_DELAY_CONSTANT"
+		"115"
 		""
 		(type "PARAMETER_SIGNED_DEC")	)
 	(parameter
