@@ -41,8 +41,8 @@ entity top1 is
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
 				GAINBM_G	: natural range 0 to 16 := 12; 			--! fractional fixed points bit
 				GAINBP_G	: natural range 1 to 16 := 4; 			--! integer bits
-				--Kprop_G		: integer				:= 16384;		--! Proportional gain:  Kp*(2**GAINBM)
-				--KixTs_G		: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
+				Kprop_G		: integer				:= 16384;		--! Proportional gain:  Kp*(2**GAINBM)
+				KixTs_G		: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 1; --!  Total number of controler used (slaves + master)
 				DELTA_I_REF_G 		: integer := 25*(2**5); --! minimum set current change (25 A) for entering hysteresis mode 
@@ -55,7 +55,6 @@ entity top1 is
 	port(
 		clk_i			: in  std_logic;                               --! Main system clock 
 		nreset_i    	: in  std_logic;                               --! asynchronous lowactive reset 
-		nsoftreset_i	: in std_logic; 							--! softreset for whole PI chain including MAF 		
 		data_clk_i 		: in std_logic; 								--! ~60 KHz clock PWM  
 		sample_clk_i	: in std_logic; 								--! ~2 MHz sample clk
 		hyst_enable_i	: in std_logic; --! enables hysteresis mode			
@@ -64,10 +63,8 @@ entity top1 is
 		vc_i 			: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Vc measured voltage
 		vc_switch_i 	: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! switchable input signal vc (00: no operation, 01: +, 10: -)
 		switch_i		: in std_logic_vector(1 downto 0); -- switch signal 		
-		imeas_i			: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Measured current  
+		imeas_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Measured current  
 		iset_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Set current No.1 
-		kprop_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control proportional gain:  kprop_i = Kp*(2**GAINBM)
-		kixts_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control integral gain:  kixts = (Ki/fs)*(2**GAINBM)	
 		pwm_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0) --! High switch output
 		);			            							
 end top1;
@@ -85,8 +82,8 @@ component hybrid_top is
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
 				GAINBM_G	: natural range 0 to 16 := 12; 			--! fractional fixed points bit
 				GAINBP_G	: natural range 1 to 16 := 4; 			--! integer bits
-				--Kprop_G		: integer				:= 16384;		--! Proportional gain:  Kp*(2**GAINBM)
-				--KixTs_G		: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
+				Kprop_G		: integer				:= 16384;		--! Proportional gain:  Kp*(2**GAINBM)
+				KixTs_G		: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 6 ; --!  Total number of controler used (slaves + master)
 				DELTA_I_REF_G 		: integer := 25*(2**5)*6; --! minimum set current change (25 A) for entering hysteresis mode 
@@ -99,7 +96,6 @@ component hybrid_top is
 	port(
 		clk_i			: in  std_logic;                               --! Main system clock 
 		nreset_i    	: in  std_logic;                               --! asynchronous lowactive reset 
-		nsoftreset_i	: in std_logic; 							--! softreset for whole PI chain including MAF 		
 		data_clk_i 		: in std_logic; 								--! ~60 KHz clock PWM  
 		sample_clk_i	: in std_logic; 								--! ~2 MHz sample clk
 		hyst_enable_i	: in std_logic; --! enables hysteresis mode			
@@ -110,8 +106,6 @@ component hybrid_top is
 		switch_i		: in std_logic_vector(1 downto 0); -- switch signal 		
 		imeas_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Measured current  
 		iset_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Set current No.1 
-		kprop_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control proportional gain:  kprop_i = Kp*(2**GAINBM)
-		kixts_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control integral gain:  kixts = (Ki/fs)*(2**GAINBM)	
 		pwm_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0); --! High switch output
 		count_o			: out array_signed16(NO_CONTROLER_G-1 downto 0); --! PWM counter No.1 (testing)
 		i_upper_o		: out array_signed16(NO_CONTROLER_G-1 downto 0); --! Hysteresis upper current bound No.1 (testing)
@@ -126,13 +120,9 @@ end component;
 	
 	
 -- =================== SIGNALS ===================================================
-signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate measurement array (with one element)
-
 
 -- =================== STATES ====================================================
 	begin
-	
-	imeas_s(0) <= imeas_i; 
 	
 	
 	inst_controller: hybrid_top 
@@ -145,8 +135,8 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 				ANTI_WINDUP_G		=> ANTI_WINDUP_G,		
 				GAINBM_G			=> GAINBM_G,			
 				GAINBP_G			=> GAINBP_G,			
-				--Kprop_G				=> Kprop_G,				
-				--KixTs_G				=> KixTs_G,				
+				Kprop_G				=> Kprop_G,				
+				KixTs_G				=> KixTs_G,				
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		=> NO_CONTROLER_G, 		
 				DELTA_I_REF_G 		=> DELTA_I_REF_G, 		
@@ -158,8 +148,7 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 		)
 	port map(
 		clk_i			=> clk_i,			
-		nreset_i    	=> nreset_i,    
-		nsoftreset_i	=> nsoftreset_i, 
+		nreset_i    	=> nreset_i,    	
 		data_clk_i 		=> data_clk_i, 		
 		sample_clk_i	=> sample_clk_i,	
 		hyst_enable_i	=> hyst_enable_i,	
@@ -168,10 +157,8 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 		vc_i 			=> vc_i, 			
 		vc_switch_i 	=> vc_switch_i, 	
 		switch_i		=> switch_i,		
-		imeas_i			=> imeas_s,			
-		iset_i			=> iset_i,		
-		kprop_i			=>	kprop_i,			
-		kixts_i			=> kixts_i,		
+		imeas_i			=> imeas_i,			
+		iset_i			=> iset_i,			
 		pwm_o			=> pwm_o,			
 		count_o			=> open, 			
 		i_upper_o		=> open,		

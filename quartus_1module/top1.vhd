@@ -37,6 +37,7 @@ entity top1 is
 				MEAS_I_DATAWIDTH_G 	: integer range 8 to 16 := 13;  --! Data width of current measurements  
 				MEAS_V_DATAWIDTH_G	: integer range 8 to 16 := 12; --! Data width of voltage measurements 
 				DATAWIDTH_G			: integer := 16; --! General internal datawidth: THIS HAS TO BE KEPT CONSTANT
+				
 				-- PI settings 
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
 				GAINBM_G	: natural range 0 to 16 := 12; 			--! fractional fixed points bit
@@ -44,7 +45,7 @@ entity top1 is
 				--Kprop_G		: integer				:= 16384;		--! Proportional gain:  Kp*(2**GAINBM)
 				--KixTs_G		: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
-				NO_CONTROLER_G 	: integer := 1; --!  Total number of controler used (slaves + master)
+				NO_CONTROLER_G 		: integer := 1; --!  Total number of controler used (slaves + master)
 				DELTA_I_REF_G 		: integer := 25*(2**5); --! minimum set current change (25 A) for entering hysteresis mode 
 				DELTA_I_THR_G 		: integer := 40*(2**5); --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
@@ -80,6 +81,7 @@ component hybrid_top is
 				NINTERLOCK_G		: integer := 1; --50
 				MEAS_I_DATAWIDTH_G 	: integer range 8 to 16 := 13;  --! Data width of current measurements  
 				MEAS_V_DATAWIDTH_G	: integer range 8 to 16 := 12; --! Data width of voltage measurements 
+				
 				DATAWIDTH_G			: integer := 16; --! General internal datawidth: THIS HAS TO BE KEPT CONSTANT
 				-- PI settings 
 				ANTI_WINDUP_G: integer 				:= 20*(2**5); --! maximum error for integration active 
@@ -138,9 +140,8 @@ signal imeas_s : array_signed_in(NO_CONTROLER_G-1 downto 0); --! Intermediate me
 	inst_controller: hybrid_top 
 	generic map( CMAX_G 			=> CMAX_G, 			
 				NINTERLOCK_G		=> NINTERLOCK_G,		
-				MEAS_I_DATAWIDTH_G 	=> MEAS_I_DATAWIDTH_G, 	
-				MEAS_V_DATAWIDTH_G	=> MEAS_V_DATAWIDTH_G,	
-				DATAWIDTH_G			=> DATAWIDTH_G,			
+				DATAWIDTH_G			=> DATAWIDTH_G,
+				
 				-- PI settings       
 				ANTI_WINDUP_G		=> ANTI_WINDUP_G,		
 				GAINBM_G			=> GAINBM_G,			
