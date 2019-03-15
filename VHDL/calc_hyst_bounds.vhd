@@ -29,6 +29,7 @@ use ieee.numeric_std.all;
 
 entity calc_hyst_bounds is
 	generic( 	DATAWIDTH_G : natural := 16;
+				NO_CONTROLER_G 	: integer := 2;--! Total number of controler used
                 DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8) (Ho is 5A here)
                 TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.
 				NINTERLOCK_G: natural := 50 -- number of interlock clocks 
@@ -74,11 +75,11 @@ constant SIGNED_16_MIN		: signed(15 downto 0) := to_signed(-2**15,16);
 constant SIGNED_32_MAX		: signed(31 downto 0) := to_signed(2**30-1,32); 
 constant SIGNED_32_MIN		: signed(31 downto 0) := to_signed(-2**30-1,32); 
 
-constant TRISE_MAX          : signed(15 downto 0) := to_signed(8000,16);
-constant TRISE_MIN          : signed(15 downto 0) := to_signed(50,16);
+constant TRISE_MAX          : signed(15 downto 0) := to_signed(2000,16);
+constant TRISE_MIN          : signed(15 downto 0) := to_signed(100,16);
 
-constant TFALL_MAX          : signed(15 downto 0) := to_signed(10000,16); 
-constant TFALL_MIN          : signed(15 downto 0) := to_signed(50,16); 
+constant TFALL_MAX          : signed(15 downto 0) := to_signed(12000,16); 
+constant TFALL_MIN          : signed(15 downto 0) := to_signed(200,16); 
 
 constant VC_GUESS           :integer := 100; -- Guessed value for the initial voltage in case it is not available from the Rset
 
@@ -260,7 +261,7 @@ signal Hcomp_rise_result_s, Hcomp_rise_result_next_s, Hcomp_fall_result_s, Hcomp
 signal yComp_mult_r_s,  yComp_mult_f_s : std_logic_vector(2*DATAWIDTH_G-1 downto 0) := (others => '0'); --! multiplication result
 signal yComp_r_s,  yComp_f_s : signed(DATAWIDTH_G downto 0) := (others => '0'); --! difference result
 signal Hcomp_rise_s,Hcomp_fall_s,Hcomp_rise_next_s,Hcomp_fall_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! 
-
+signal iset_total_s, iset_total_next_s :  signed(DATAWIDTH_G-1 downto 0):= (others => '0'); --! total set current
 begin		
 
 	--! @brief Registers for Hss state machine 
@@ -326,6 +327,7 @@ begin
             V1_comp_s   <= (others => '0');
             V2_comp_s   <= (others => '0');
             Vc_comp_s   <= (others => '0');
+            iset_total_s   <= (others => '0');
 		elsif rising_edge(clk_i) then
 			phase_shift_en_vec_s <=phase_shift_en_vec_s(0) & phase_shift_en_i;
             delay_shift_s  <= delay_shift_s(0) & delay_shift_i;
@@ -390,6 +392,7 @@ begin
             Hcomp_state_s   <= Hcomp_state_next_s;
             V1_comp_s   <= V1_comp_next_s;
             V2_comp_s   <= V2_comp_next_s;
+            iset_total_s <= iset_total_next_s;
             Vc_comp_s   <= Vc_comp_next_s;
 		end if; 
 	end process; 
@@ -875,6 +878,9 @@ begin
 		-- third stage 
 		x30_s <= resize(x10_s,2*(DATAWIDTH_G+2)+1);
 		y3_next_s <= x30_s - x31_s; 
+
+        iset_total_next_s <= resize(iset_i*to_signed(NO_CONTROLER_G,16),16);
+
 	end process;
 
 	square_inst:  my_18_mult 
@@ -957,7 +963,7 @@ begin
 	SetVolt_Mult_inst : MY_16_MULTIPLIER
 	port map(
 		clock		=> clk_i, 
-		dataa		=> std_logic_vector(iset_i), 
+		dataa		=> std_logic_vector(iset_total_s), 
 		datab		=> std_logic_vector(Rset_i),
 		result		=> vc_set_s
 	);

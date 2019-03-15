@@ -387,7 +387,7 @@ begin
 				if imeas_s  >= i_upper_s then 
 					--hyst_state_next_s <= FIRST_DOWN; -- EDIT TSOL4
                     hyst_state_next_s <= DELAY_U1;
-							t1_start_next_s <= '1';
+					t1_start_next_s <= '1';
                     delay_fall_next_2nd_s <= to_integer(Tss_bound_fall_i);
 						  dly_cnt_next_s <= 0;
 				end if;

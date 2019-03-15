@@ -84,6 +84,7 @@ constant ZEROS_BIT_C: signed(BIT_DIFF_C-1 downto 0) := (others => '0');
 --! @brief Calculate Hss bound  
 component calc_hyst_bounds is 
 	generic( 	DATAWIDTH_G : natural := 16;
+                NO_CONTROLER_G 	: integer := 2; --! Total number of controler used (slaves + master)
                 DELAY_COMP_CONSTANT : integer := 250000; -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)
                 TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.  
 				NINTERLOCK_G: natural := 50 -- number of interlock clocks 
@@ -193,6 +194,7 @@ begin
 	--! @brief Calculate Hysteresis Bounds 
 	calc_hyst_bounds_inst: calc_hyst_bounds 
 	generic map( 	DATAWIDTH_G => DATAWIDTH_G,
+                    NO_CONTROLER_G => NO_CONTROLER_G,
                     DELAY_COMP_CONSTANT		=> DELAY_COMP_CONSTANT,
                     TIME_DELAY_CONSTANT => TIME_DELAY_CONSTANT, 
 					NINTERLOCK_G=> NINTERLOCK_G

@@ -81,7 +81,8 @@ entity hybrid_control is
 		hyst_o			: out std_logic; 
 		hyst_t1_o 		: out std_logic;--! Start of point t1 during hysteresis control of this module 
 		hyst_t2_o		: out std_logic; --! Start of SECOND_UP of this module
-		hyst_vec_i		: in std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		
+		hyst_vec_i		: in std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules
+		hyst_vec_o		: out std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		  		  		
 		hyst_t2_ma_i	: in std_logic; --! Start of SECOND_UP of master module
 		Tss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! hss_bound
 		Tss_bound_fall_i: in signed(DATAWIDTH_G-1 downto 0); --! hss_bound	 	
@@ -527,5 +528,6 @@ architecture rtl of hybrid_control is
 	d_o <= signed(resize(d_s,16));
 	ierr_o <= resize(ierr_avg_s,16);
 	imeas_avg_o <= resize(imeas_avg_s,16);
+    hyst_vec_o <= hyst_vec_i;
 	
 end rtl;

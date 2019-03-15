@@ -82,6 +82,7 @@ entity hybrid_top is
 		i_lower_o		: out array_signed16(NO_CONTROLER_G-1 downto 0);  --! Hysteresis lower current bound No.2 (testing)
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
+		hyst_vec_o		: out std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		  		
 		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0)
 		);			            							
 end hybrid_top;
@@ -142,7 +143,8 @@ architecture rtl of hybrid_top is
 		hyst_o			: out std_logic; 
 		hyst_t1_o 		: out std_logic;--! Start of point t1 during hysteresis control of this module 
 		hyst_t2_o		: out std_logic; --! Start of SECOND_UP of this module
-		hyst_vec_i		: in std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		
+		hyst_vec_i		: in std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules
+		hyst_vec_o		: out std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		  		
 		hyst_t2_ma_i	: in std_logic; --! Start of SECOND_UP of master module 		
 		hss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! hss_bound
 		Tss_bound_i		: in signed(DATAWIDTH_G-1 downto 0); --! Tss_bound
@@ -232,7 +234,6 @@ architecture rtl of hybrid_top is
 	constant HIGH_C		: std_logic := '1'; 
 	constant LOW_C 		: std_logic := '0'; 
 	
-	
 -- =================== SIGNALS ===================================================
 	signal pwm_ma_start_s: std_logic := LOW_C; --! Start of master pwm cylce 
 	signal hyst_vec_s : std_logic_vector(NO_CONTROLER_G-1 downto 0) := (others => '0'); --! Hysteresis mode of all modules
@@ -247,8 +248,6 @@ architecture rtl of hybrid_top is
 	signal imeas_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current 
 	signal iset_tot_s : signed(DATAWIDTH_G-1+(NO_CONTROLER_G-1) downto 0); --! total measured current
 	signal Hcomp_bound_rise_s,Hcomp_bound_fall_s : signed(15 downto 0);
-
- 
 	
 -- =================== STATES ====================================================
 	begin
@@ -304,6 +303,7 @@ architecture rtl of hybrid_top is
 		hyst_t1_o 		=> hyst_t1_vec_s(0), 
 		hyst_t2_o		=> hyst_t2_vec_s(0),
 		hyst_vec_i		=> hyst_vec_s,
+		hyst_vec_o		=> hyst_vec_o,
 		hyst_t2_ma_i	=> LOW_C,
 		hss_bound_i		=> hss_bound_s,
 		Tss_bound_i		=> Tss_bound_s,
@@ -369,7 +369,6 @@ architecture rtl of hybrid_top is
 			deltaH_ready_o	=> open,	
 			deltaH_o 		=> open,
             deltaT_fall_o 	=> open,	
-            deltaT_o 		=> open 	
-		
+            deltaT_o 		=> open 
 			);
 end rtl; 
