@@ -10,6 +10,9 @@ Tested non-compensated controller:
 This contains the tested non compensated controller from Jan. 2019. 
 
 
-Tested compensated controlller:
+Tested compensated controlller:*
 
 This contains the improved version that was also tested on teh hardware on Feb. 2019. This includes the extra feature with the set resistive load. 
+This branch is also tested with the 6 modules.
+
+Also includes the output that can be used for the damping control.
