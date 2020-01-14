@@ -1,15 +1,13 @@
 # Hybrid_Control
 
-Configuration 12.03.2019:
+Configuration 14.01.2019
 
-The master branch is the version created by Michael Hersche before he left. This version was not tested on the hardware but it acts as a reference design. 
+This code goes hand to hand with the documentation attached here. 
+It only works and is tested with 1 M3TC stage. 
+It is the interleavbed controller and all details are listed in the docu.
 
+Run the model m3tc_hybrid2016b.slx
 
-Tested non-compensated controller:
+Docu:
 
-This contains the tested non compensated controller from Jan. 2019. 
-
-
-Tested compensated controlller:
-
-This contains the improved version that was also tested on teh hardware on Feb. 2019. This includes the extra feature with the set resistive load. 
+C:\Users\tsolarig\polybox\Control Status Documentation
