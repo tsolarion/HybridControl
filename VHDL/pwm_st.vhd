@@ -54,6 +54,8 @@ architecture rtl of pwm_st is
 -- =================== SIGNALS ===================================================
 	--signal count_clk_s 		: std_logic;							--trigger sampling signal
 	signal count_s 			: integer range 0 to 2**(CNT_RES_G+1)-1;				--carrier
+	signal count_renew_s 			: integer range 0 to 2**(CNT_RES_G+1)-1;				--carrier
+
 	signal count_interlock_s,count_interlock_next_s : integer range 0 to 2**(CNT_RES_G+1)-1;
 	signal ref_sat_s		: integer range 0 to 2**(CNT_RES_G+1)-1;	--input after saturation...
 	signal cnt_top_s 		: integer range 0 to 2**(CNT_RES_G+1)-1 := CNT_TOP_G;  --  
@@ -62,7 +64,7 @@ architecture rtl of pwm_st is
 	signal flag_vc_s, flag_vc_next_s		: std_logic;
 	
 -- =================== STATES ====================================================
-	type state_t is (SW_ON, SW_OFF, SW_DISABLED, SW_INTERLOCK);
+	type state_t is (SW_ON, SW_OFF, SW_DISABLED, SW_INTERLOCK,DUTY_RENEW);
 	signal current_state_s, next_state_s : state_t;
 	
 
@@ -104,7 +106,7 @@ architecture rtl of pwm_st is
 		elsif rising_edge(clk_i) then
 			count_interlock_s <= count_interlock_next_s;
 			cnt_top_s <= to_integer(cnt_top_i);
-			if (flag_vc_s = '1' and count_interlock_s > 0) then	-- Pascal: reset flag after interlocking started
+			if (flag_vc_s = '1' and current_state_s = SW_INTERLOCK) then	-- Pascal: reset flag after interlocking started
 				flag_vc_next_s <= '0';
 			end if;
 			ref_val := next_duty_candidate;		--convert duty_i to integer so that it can be compared to counter. 
@@ -174,13 +176,34 @@ architecture rtl of pwm_st is
 					-- end if;
 					if count_s = 0 then 
 						next_state_s <= SW_INTERLOCK; 
-					elsif (flag_vc_s = '1' and next_duty_candidate > count_s + CNT_INTERLOCK_G AND previous_duty_candidate /= next_duty_candidate) then -- Pascal: turn on after switch was off in the same duty cycle.
-						next_state_s <= SW_INTERLOCK;	-- Pascal: only turn on again if there is enough time for the interlocking
-						count_interlock_next_s <= count_s; -- Pascal: Save counter to check proper interlocking
+
+					--elsif (flag_vc_s = '1' and next_duty_candidate > count_s + CNT_INTERLOCK_G AND previous_duty_candidate /= next_duty_candidate) then -- Pascal: turn on after switch was off in the same duty cycle.
+					--	next_state_s <= SW_INTERLOCK;	-- Pascal: only turn on again if there is enough time for the interlocking
+					--	count_interlock_next_s <= count_s; -- Pascal: Save counter to check proper interlocking
+
+                    elsif (next_duty_candidate > count_s and count_s < CNT_TOP_G-4*CNT_INTERLOCK_G and flag_vc_s = '1') then -- TSOL: RENEWAL OF DUTY
+						next_state_s <= DUTY_RENEW;	-- TSOL: RENEWAL OF DUTY
+						--count_interlock_next_s <= count_s; -- Pascal: Save counter to check proper interlocking --TSOL: ???
+                        count_renew_s <= count_s; -- Keep the current counter to make the correct timing decisions!
 					else 
 						next_state_s <= SW_OFF; 
 					end if; 
+				
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------		
 					
+                ----- IMPLEMENTED BY TSOL -----
+
+                when DUTY_RENEW =>
+                    --- STAY AT LEAST INTERLOCKING TIME HERE!
+                    switch1_o <= '0';
+					switch2_o <= '0';
+                    if count_s <= count_renew_s + CNT_INTERLOCK_G then
+                        next_state_s <= DUTY_RENEW;
+                    else
+                        count_renew_s <= 0;
+                        next_state_s <= SW_ON;
+                    end if; 
+                 ----- END IMPLEMENTED BY TSOL -----
 					
 				when SW_DISABLED =>
 					switch1_o <= '0';

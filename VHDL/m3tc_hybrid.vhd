@@ -20,13 +20,14 @@
 
 
 library work; 
-USE work.stdvar_arr_pkg.all;
+use work.stdvar_arr_pkg.all;
 -- use standard library
 library ieee;
 --! Use logic elements
 use ieee.std_logic_1164.all;
 --! Use numeric elements
 use ieee.numeric_std.all;
+
 
 --! @brief Top level of m3tc and hybrid control with 5 slaves 
 --! @details 
@@ -49,12 +50,14 @@ entity m3tc_hybrid is
 				--KixTs_G				: integer				:= 5000; 	--! Integral gain:  (Ki/fs)*(2**GAINBM)	
 				-- Hysteresis settings 
 				NO_CONTROLER_G 		: integer := 6 ; --!  Total number of controler used (slaves + master)
-				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (25 A) for entering hysteresis mode 
-				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
+				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (60 A) for entering hysteresis mode 
+				DELTA_I_THR_G 		: integer := 10*(2**5)*6; --! minimum current difference (60 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
-				D_IOUT_MAX_G		: integer := 20*(2**5); --! Maximum current ripple after first rise (here 20A) 
-				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "011"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
-				N_CYCLE_REST_G		: integer := 1; --! Number of cycles controller stays in Hysterssis after phaseshift 
+				D_IOUT_MAX_G		: integer := 30*(2**5); --! Maximum current ripple after first rise (here 20A) 
+				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "001"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset
+                TIME_DELAY_CONSTANT : integer := 50; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.
+                DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  		 
+				N_CYCLE_REST_G		: integer := 0; --! Number of cycles controller stays in Hysterssis after phaseshift 
 				-- Variable L points
 				L1_G				: real 	  := 0.00025;--0.00013; --! Inductance [H] at point 1 
 				L2_G 				: real 	  := 0.00025;--0.000115; --! Inductance [H] at point 2 
@@ -79,13 +82,15 @@ entity m3tc_hybrid is
 		kixts_i			: in signed(GAINBM_G + GAINBP_G -1 downto 0);  --! PI control integral gain:  kixts = (Ki/fs)*(2**GAINBM)	
 		pwm_o			: out std_logic_vector(2*NO_CONTROLER_G-1 downto 0); --! High switch output
 		count_o			: out array_signed16(NO_CONTROLER_G-1 downto 0); --! PWM counter No.1 (testing)
+		Rset_i 			: in unsigned(DATAWIDTH_G-1 downto 0);        --! Rset measured voltage		
 		i_upper_o		: out array_signed16(NO_CONTROLER_G-1 downto 0); --! Hysteresis upper current bound No.1 (testing)
 		i_lower_o		: out array_signed16(NO_CONTROLER_G-1 downto 0);  --! Hysteresis lower current bound No.2 (testing)
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		vc_switch_i 	: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! switchable input signal vc (00: no operation, 01: +, 10: -)
-		switch_i		: in std_logic; -- Pascal: Added because at the moment it is still needed
+		switch_i		: in std_logic; -- Pascal: Added because at the moment it is still needed. Tsol: He means probably only for the model to run...
+		hyst_vec_o		: out std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		  		
 		---------------------M3TC---------------------------------------------------
 		MODE_put_to_3_i :  in  std_logic_vector(2 downto 0);
         Number_12_bit3_i:  in  std_logic_vector(11 downto 0);
@@ -116,8 +121,6 @@ entity m3tc_hybrid is
 		outTempHS_2_o 	:  out  std_logic_vector(11 downto 0);
 		outTempIGBT_1_o	:  out  std_logic_vector(11 downto 0);
 		outTempIGBT_2_o	:  out  std_logic_vector(11 downto 0);
-		outOpticalSIGNAL_1_o : OUT STD_LOGIC_VECTOR(4 downto 0);
-		outOpticalSIGNAL_2_o : OUT STD_LOGIC_VECTOR(4 downto 0);
 		outVOLT_1_o		:  out  std_logic_vector(11 downto 0);
 		outVOLT_2_o		:  out  std_logic_vector(11 downto 0)
 		);			            							
@@ -148,9 +151,11 @@ architecture rtl of m3tc_hybrid is
 				DELTA_I_REF_G 		: integer := 10*(2**5)*6; --! minimum set current change (25 A) for entering hysteresis mode 
 				DELTA_I_THR_G 		: integer := 40*(2**5)*6; --! minimum current difference (25 A) between measured and set current for entering hysteresis mode 
 				DELTA_VC_G			: integer := 100*(2**5); --! minimum VC change change (100 V) for entering hysteresis mode 
-				D_IOUT_MAX_G		: integer := 20*(2**5); --! Maximum current ripple after first rise (here 20A) 
-				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "011"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
-				N_CYCLE_REST_G		: integer := 1; --! Number of cycles controller stays in Hysterssis after phaseshift 
+				D_IOUT_MAX_G		: integer := 10*(2**5); --! Maximum current ripple after first rise (here 20A)
+                TIME_DELAY_CONSTANT : integer := 115; --! Delay/L * 2**12. By default this is 7/250 * 4096. This is used for the initial compensation for the hysteresis bounds.
+                DELAY_COMP_CONSTANT : integer := 250000*(2**5); -- Constant for delay compensation in the 2nd rise. (2*H0*L*10**8)  		 
+				HYST_COND_SEL_G		: std_logic_vector(2 downto 0):= "111"; --! Enable conditions for entering hysteresis: 2: vc, 1: ierr, 0: iset 
+				N_CYCLE_REST_G		: integer := 0; --! Number of cycles controller stays in Hysterssis after phaseshift 
 				-- Variable L points
 				L1_G				: real 	  := 0.00025;--0.00013; --! Inductance [H] at point 1 
 				L2_G 				: real 	  := 0.00025;--0.000115; --! Inductance [H] at point 2 
@@ -169,6 +174,7 @@ architecture rtl of m3tc_hybrid is
 		vbush_i    		: in unsigned(MEAS_V_DATAWIDTH_G-1 downto 0); --! V1 measured voltage                                    			
 		vbusl_i     	: in unsigned(MEAS_V_DATAWIDTH_G-1 downto 0); --! V2 measured voltage 
 		vc_i 			: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! Vc measured voltage
+		Rset_i 			: in unsigned(DATAWIDTH_G-1 downto 0);        --! Rset measured voltage
 		vc_switch_i 	: in signed(MEAS_I_DATAWIDTH_G-1 downto 0); --! switchable input signal vc (00: no operation, 01: +, 10: -)
 		switch_i		: in std_logic_vector(1 downto 0); -- switch signal 		
 		imeas_i			: in array_signed_in(NO_CONTROLER_G-1 downto 0); --! Measured current  
@@ -182,6 +188,7 @@ architecture rtl of m3tc_hybrid is
 		d_o				: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		ierr_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
 		pi_o			: out array_signed16(NO_CONTROLER_G-1 downto 0);
+		hyst_vec_o		: out std_logic_vector(NO_CONTROLER_G-1 downto 0);  --! hystersis mode of all modules  		  		
 		iset_tot_o		: out std_logic_vector(11 downto 0); --! total measured current only integer bits
 		imeas_tot_o		: out std_logic_vector(11 downto 0)  --! total measured current only integer bits 
 		);			            							
@@ -226,10 +233,8 @@ component Compact_m3tc IS
 		outTempHS_2 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0);
 		outTempIGBT_1 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0);
 		outTempIGBT_2 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0);
-		outOpticalSIGNAL_1 : OUT STD_LOGIC_VECTOR(4 downto 0);
-		outOpticalSIGNAL_2 : OUT STD_LOGIC_VECTOR(4 downto 0);
 		outVOLT_1 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0);
-		outVOLT_2 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0);
+		outVOLT_2 :  OUT  STD_LOGIC_VECTOR(11 DOWNTO 0); 
 		sw_Vprecontrol_o :  OUT  STD_LOGIC_VECTOR(1 DOWNTO 0)
 	);
 END component;
@@ -267,7 +272,9 @@ END component;
 					DELTA_I_THR_G 		=> DELTA_I_THR_G, 		
 					DELTA_VC_G			=> DELTA_VC_G,			
 					D_IOUT_MAX_G		=> D_IOUT_MAX_G,		    
-					HYST_COND_SEL_G		=> HYST_COND_SEL_G,		
+					HYST_COND_SEL_G		=> HYST_COND_SEL_G,	
+                    TIME_DELAY_CONSTANT => TIME_DELAY_CONSTANT,
+                    DELAY_COMP_CONSTANT	=> DELAY_COMP_CONSTANT,	
 					N_CYCLE_REST_G		=> N_CYCLE_REST_G,		
 					-- Variable L points                        
 					L1_G				=> L1_G,				    
@@ -290,7 +297,8 @@ END component;
 			vc_switch_i 	=> vc_switch_i,
 			switch_i		=> sw_Vprecontrol_s,	
 			imeas_i			=> imeas_i,		
-			iset_i			=> iset_i,			
+			iset_i			=> iset_i,
+            Rset_i 			=> Rset_i, 			
 			kprop_i			=> kprop_i,	
 			kixts_i			=> kixts_i,			
 			pwm_o			=> pwm_o,
@@ -300,6 +308,7 @@ END component;
 			d_o				=> d_o,
 			ierr_o			=> ierr_o,
 			pi_o			=> pi_o,
+            hyst_vec_o		=> hyst_vec_o,
 			iset_tot_o		=> iset_tot_m3tc_s, 
 			imeas_tot_o		=> imeas_tot_m3tc_s
 			);			
@@ -347,8 +356,6 @@ END component;
 		outTempIGBT_2       => outTempIGBT_2_o,     
 		outVOLT_1           => outVOLT_1_o,         
 		outVOLT_2           => outVOLT_2_o ,
-		outOpticalSIGNAL_1  => outOpticalSIGNAL_1_o,
-		outOpticalSIGNAL_2  => outOpticalSIGNAL_2_o,
 		sw_Vprecontrol_o	=> sw_Vprecontrol_s	
 	);
 

@@ -42,7 +42,7 @@ end phase_shift_control;
 architecture structural of phase_shift_control is
 -- ================== CONSTANTS ==================================================				
 constant DELTA_C_STAR_C : integer range 0 to 2*CMAX_G := (CMAX_G * MY_NUMBER_G)/(NO_CONTROLER_G); -- wanted counter difference 
-constant MAX_DELTA_C : integer range 0 to 2*CMAX_G := CMAX_G/10; -- maximum change in counter value (here 20%)
+constant MAX_DELTA_C : integer range 0 to 2*CMAX_G := CMAX_G/2; -- maximum change in counter value (here 20%)
 -- ================== COMPONENTS =================================================
 	
 -- =================== STATES ====================================================

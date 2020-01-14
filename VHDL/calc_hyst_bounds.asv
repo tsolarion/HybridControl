@@ -83,11 +83,8 @@ constant TFALL_MIN          : signed(15 downto 0) := to_signed(200,16);
 
 constant VC_GUESS           :integer := 200; -- Guessed value for the initial voltage in case it is not available from the Rset
 
-constant V_M3TC             : signed(15 downto 0):= to_signed(18240,16);
+constant V_M3TC             : signed(15 downto 0):= to_signed(2200,16);
  
-constant VC_ERROR : signed(DATAWIDTH_G-1 downto 0) := to_signed(0*2**5,DATAWIDTH_G); -- SHOULD BE CALCULATED AS DI/DT*Lload (in the default case 10A/us*5uH = 50V!)
-
-
 -- ================== COMPONENTS =================================================
 --! @brief Signed multiplier 18 bits x 18 bits 
 
@@ -156,17 +153,6 @@ component MY_16_MULTIPLIER is
 		result		: out std_logic_vector (31 downto 0)
 	);
 end component;
-
-
-component my_17_16_mult IS
-	PORT
-	(
-		clock		: IN STD_LOGIC ;
-		dataa		: IN STD_LOGIC_VECTOR (16 DOWNTO 0);
-		datab		: IN STD_LOGIC_VECTOR (15 DOWNTO 0);
-		result		: OUT STD_LOGIC_VECTOR (32 DOWNTO 0)
-	);
-END component;
 
 	
 -- =================== STATES ====================================================
@@ -248,7 +234,7 @@ signal V1_r_s, V1_r_next_s, V2_r_fall_s, V2_r_fall_next_s, V1_r2_s, V1_r2_next_s
 
 signal Vc_r_s, Vc_r_next_s, Vc_r_fall_s, Vc_r_fall_next_s, Vc_r2_s, Vc_r2_next_s, Vc_r2_fall_s, Vc_r2_fall_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! sampled Vc signal 
 
-signal vc_set_s		: std_logic_vector(32 downto 0):= (others => '0'); --! calculated set voltage
+signal vc_set_s		: std_logic_vector(31 downto 0):= (others => '0'); --! calculated set voltage
 signal Vc_comp_s, Vc_comp_next_s : signed(2*DATAWIDTH_G-1 downto 0) := (others => '0');
 
 signal xRise_s, xRise_next_s, xRise_fall_s, xRise_fall_next_s, xRise2_s, xRise2_next_s, xRise2_fall_s, xRise2_fall_next_s   : signed(31 downto 0) := (others => '0'); --! xRise_s = (Vbush - Vc)
@@ -267,7 +253,6 @@ constant X21_INIT_C : signed(DATAWIDTH_G downto 0) := to_signed(24800+2400,DATAW
 
 constant COMP_THRESH_C : signed(DATAWIDTH_G+1 downto 0) := to_signed(20*(2**5),DATAWIDTH_G+2); 
 
-
 --- Signals for the compensation of the initial rise
 signal Hcomp_state_s, Hcomp_state_next_s : Hcomp_calcstate := IDLE; -- Tss states for supervision of calculation steps  
 signal Tcomp_cnt_s, Tcomp_cnt_next_s : integer := 0;  --! counter for hss state machine supervising timing of calculations
@@ -277,7 +262,7 @@ signal Hcomp_rise_result_s, Hcomp_rise_result_next_s, Hcomp_fall_result_s, Hcomp
 signal yComp_mult_r_s,  yComp_mult_f_s : std_logic_vector(2*DATAWIDTH_G-1 downto 0) := (others => '0'); --! multiplication result
 signal yComp_r_s,  yComp_f_s : signed(DATAWIDTH_G downto 0) := (others => '0'); --! difference result
 signal Hcomp_rise_s,Hcomp_fall_s,Hcomp_rise_next_s,Hcomp_fall_next_s : signed(DATAWIDTH_G-1 downto 0) := (others => '0'); --! 
-signal iset_total_s, iset_total_next_s :  signed(DATAWIDTH_G downto 0):= (others => '0'); --! total set current
+signal iset_total_s, iset_total_next_s :  signed(DATAWIDTH_G-1 downto 0):= (others => '0'); --! total set current
 begin		
 
 	--! @brief Registers for Hss state machine 
@@ -438,11 +423,7 @@ begin
 					vbush_next_s <= resize(vbush_i,DATAWIDTH_G+1); 
 					vbusl_next_s <= resize(vbusl_i,DATAWIDTH_G+2);
                     if Rset_i = 0 then
-                        if (iset_i = 0) then
-                            vc_next_s <= to_signed(-8,DATAWIDTH_G+2);
-                        else
-                            vc_next_s <= resize(vc_i-VC_ERROR,DATAWIDTH_G+2);
-                        end if;
+                        vc_next_s <= resize(vc_i,DATAWIDTH_G+2);
                     else
                         vc_next_s <= resize(signed(vc_set_s)/2**12,DATAWIDTH_G+2);
                         --if (vc_next_s > V_M3TC) then
@@ -521,24 +502,20 @@ begin
 		
 		case Tss_state_s is 
 			when IDLE_T => 
-				--if phase_shift_en_vec_s = "01" then --LATEST UPDATE TO FIX THE STEP DOWN... I GOT RID OF THIS
+				if phase_shift_en_vec_s = "01" then 
 					Tss_state_next_s <= CALC_DIFF;
 					V1_r_next_s <= vbush_i; 
                     if Rset_i = 0 then
-                        if (iset_i =0) then
-                            Vc_r_next_s <= to_signed(-8,16);
-                        else    
-                            Vc_r_next_s <= resize(vc_i-VC_ERROR,16);
-                        end if;
+                        Vc_r_next_s <= resize(vc_i,16);
                     else
-                        if (resize(signed(vc_set_s)/2**12,16) > V_M3TC) then
-                            Vc_r_next_s <= resize(signed(vc_set_s)/2**12,16) - V_M3TC;
+                        if (resize(signed(vc_set_s)/2**8,16) > V_M3TC) then
+                            Vc_r_next_s <= resize(signed(vc_set_s)/2**8,16) - V_M3TC;
                        else
-                            Vc_r_next_s <=  resize(signed(vc_set_s)/2**12,16); -- Account for the first stage being inserted!
+                            Vc_r_next_s <=  resize(signed(vc_set_s)/2**8,16); -- Account for the first stage being inserted!
                         end if;
                     end if;
 					Tss_cnt_next_s <= 0; 
-				--end if; 
+				end if; 
 			when CALC_DIFF => 
 				if Tss_cnt_s < CNT_DIFF_C then 
 					Tss_cnt_next_s <= Tss_cnt_s +1;
@@ -598,15 +575,11 @@ begin
 		
 		case Tss_state_fall_s is 
 			when IDLE_T => 
-				--if phase_shift_en_vec_s = "01" then  --LATEST UPDATE TO FIX THE STEP DOWN... I GOT RID OF THIS
+				--if phase_shift_en_vec_s = "01" then 
 					Tss_state_fall_next_s <= CALC_DIFF;
 					V2_r_fall_next_s <= vbusl_i; 
 					if Rset_i = 0 then
-                        if (iset_i =0) then
-                            Vc_r_fall_next_s <= to_signed(-8,16);
-                        else    
-                            Vc_r_fall_next_s <= resize(vc_i-VC_ERROR,16);
-                        end if;
+                        Vc_r_fall_next_s <= resize(vc_i,16);
                     else
                         if (resize(signed(vc_set_s)/2**12,16) > V_M3TC) then
                             Vc_r_fall_next_s <= resize(signed(vc_set_s)/2**12,16) - V_M3TC;
@@ -676,15 +649,11 @@ begin
 
 		case Tss2_state_s is 
 			when IDLE_T2 => 
-			--	if delay_shift_s = "01" then --LATEST UPDATE TO FIX THE STEP DOWN... I GOT RID OF THIS
+				if delay_shift_s = "01" then 
 					Tss2_state_next_s <= CALC_DIFF2;
 					V1_r2_next_s <= vbush_i; 
 					if Rset_i = 0  then
-                        if (iset_i =0) then
-                            Vc_r2_next_s <= to_signed(-8,16);
-                        else    
-                            Vc_r2_next_s <= resize(vc_i-VC_ERROR,16);
-                        end if;
+                        Vc_r2_next_s <= resize(vc_i,16);
                     else
                         if (resize(signed(vc_set_s)/2**12,16) > V_M3TC) then
                             Vc_r2_next_s <= resize(signed(vc_set_s)/2**12,16) - V_M3TC;
@@ -693,7 +662,7 @@ begin
                         end if;
                     end if;
 					Tss2_cnt_next_s <= 0;
-			--	end if; 
+				end if; 
 			when CALC_DIFF2 => 
 				if Tss2_cnt_s < CNT_DIFF_C then 
 					Tss2_cnt_next_s <= Tss2_cnt_s +1;
@@ -764,15 +733,11 @@ begin
 
 		case Tss2_state_fall_s is 
 			when IDLE_T2 => 
-				--if delay_shift_s = "01" then 
+				if delay_shift_s = "01" then 
 					Tss2_state_fall_next_s <= CALC_DIFF2;
 					V2_r2_fall_next_s <= vbusl_i; 
 					if Rset_i = 0  then
-                        if (iset_i =0) then
-                            Vc_r2_fall_next_s <= to_signed(-8,16);
-                        else    
-                            Vc_r2_fall_next_s <= resize(vc_i-VC_ERROR,16);
-                        end if;
+                        Vc_r2_fall_next_s <= resize(vc_i,16);
                     else
                         if (resize(signed(vc_set_s)/2**12,16) > V_M3TC) then
                             Vc_r2_fall_next_s <= resize(signed(vc_set_s)/2**12,16) - V_M3TC;
@@ -781,7 +746,7 @@ begin
                         end if;
                     end if;
 					Tss2_cnt_fall_next_s <= 0;
-				--end if; 
+				end if; 
 			when CALC_DIFF2 => 
 				if Tss2_cnt_fall_s < CNT_DIFF_C then 
 					Tss2_cnt_fall_next_s <= Tss2_cnt_fall_s +1;
@@ -863,11 +828,7 @@ begin
 					V2_comp_next_s <= vbusl_i;
                     V1_comp_next_s <= vbush_i;  
 					if to_integer(Rset_i) = 0  then
-                        if (iset_i = 0) then
-                            Vc_comp_next_s <= to_signed(0,32);
-                        else
-                            Vc_comp_next_s <= to_signed(VC_GUESS*2**5,32);--! CAREFUL!! Since it is not available we have to guess the output voltage at the first rise
-                        end if;
+						Vc_comp_next_s <= to_signed(VC_GUESS*2**5,32);--! CAREFUL!! Since it is not available we have to guess the output voltage at the first rise
                     else
                         if (resize(signed(vc_set_s)/2**12,16) > V_M3TC) then
                             Vc_comp_next_s <= resize((resize(signed(vc_set_s)/2**12,16) - V_M3TC),32);
@@ -894,7 +855,7 @@ begin
 				else 
 					Tcomp_cnt_next_s <= 0; 
                     Hcomp_rise_result_next_s <= signed(yComp_mult_r_s)/2**12;
-                    Hcomp_fall_result_next_s <= signed(yComp_mult_f_s)/2**12;   -- HERE I SET THIS TO ZERO!   to_signed(0,32)/2**12; 
+                    Hcomp_fall_result_next_s <= to_signed(0,32)/2**12;--signed(yComp_mult_f_s)/2**12;
 					Hcomp_state_next_s <= IDLE;
                 end if; 
 			when others =>
@@ -945,7 +906,7 @@ begin
 		x30_s <= resize(x10_s,2*(DATAWIDTH_G+2)+1);
 		y3_next_s <= x30_s - x31_s; 
 
-        iset_total_next_s <= resize(iset_i*to_signed(NO_CONTROLER_G,16),17);
+        iset_total_next_s <= resize(iset_i*to_signed(NO_CONTROLER_G,16),16);
 
 	end process;
 
@@ -1026,7 +987,7 @@ begin
 		result		=> yRise2_Div2_fall_s
 	);
 
-	SetVolt_Mult_inst : my_17_16_mult
+	SetVolt_Mult_inst : MY_16_MULTIPLIER
 	port map(
 		clock		=> clk_i, 
 		dataa		=> std_logic_vector(iset_total_s), 

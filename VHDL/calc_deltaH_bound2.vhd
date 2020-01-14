@@ -37,7 +37,7 @@ use ieee.numeric_std.all;
 entity calc_deltaH_bound2 is 
 	generic( 	DATAWIDTH_G		: natural := 16; --! Data width of measurements  
 				CMAX_G 			: integer := 1666; --! Maximum counter value of PWM (determines PWM frequency)
-				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G 
+				MAX_NEG_FAC_G	: real 	  := 0.5; 	--! dH calc maximum fraction of period to go back => MAX_NEG_FAC_G*CMAX_G
 				NO_CONTROLER_G 	: integer := 2 --! Total number of controler used
 			);		
 	port( 	clk_i			: in std_logic; --! Main clock 
@@ -49,7 +49,9 @@ entity calc_deltaH_bound2 is
 			hyst_t2_vec_i	: in std_logic_vector(NO_CONTROLER_G-1 downto 0); --! Start of point t2 during hysteresis control of all modules (0: master) 
 			phase_shift_en_i: in std_logic; --! all modules reached t1
 			dH_fac_i		: in signed(DATAWIDTH_G-1 downto 0); --! L/T = L*fclk
-			deltaH_ready_o	: out std_logic_vector(NO_CONTROLER_G-1 downto 1); --! calculation of deltaH finished 
+			deltaH_ready_o	: out std_logic_vector(NO_CONTROLER_G-1 downto 1); --! calculation of deltaH finished
+			deltaT_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH 
+			deltaT_fall_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1); --! signed output value dH  
 			deltaH_o 		: out array_signed16(NO_CONTROLER_G-1 downto 1) --! signed output value dH 
 			);
 			
@@ -62,6 +64,7 @@ architecture structural of calc_deltaH_bound2 is
 -- Timing constants for arithmetic operations 
 constant CNT_MULT_S1S2_C 	: integer := 20; --! number of clockcycles for multiplying s1 with s2 (17 bits)
 constant CNT_DIVIDING_C	  	: integer := 101; --! number of clockcycles for scaling (46 bits)
+constant DELAY_COMP_CONSTANT_SS	  : integer := 25000*(2**5); --! L*10**8 * 2**5. This is for the compensation of the delay during the final rise of the hysteretic mode
 
 -- Scaling constants 
 --constant SCALE_T_L_C 		: std_logic_vector(15 downto 0) := std_logic_vector(to_signed(25000,16)); --! L*fclk = 250e-6*100e6 
@@ -105,6 +108,19 @@ component my_17_16_mult is
 	);
 end component;
 
+--! @brief 32 Divider 
+component my_integer_divider is
+	port
+	(
+		clock		: in std_logic ;
+		denom		: in std_logic_vector (31 downto 0);
+		numer		: in std_logic_vector (31 downto 0);
+		quotient	: out std_logic_vector (31 downto 0);
+		remain		: out std_logic_vector (31 downto 0)
+	);
+end component;
+	
+
 --! @brief dK multiplier
 component dk_mult is 
 	generic( 	DATAWIDTH_G		: natural := 16; 	--! Data width of measurements  
@@ -118,9 +134,13 @@ component dk_mult is
 			hyst_i			: in std_logic; --! start of hysteresis mode in this module 
 			t2_start_sl_i	: in std_logic; --! Start of corner point t2 during hysteresis control of slave 
 			t2_start_ma_i	: in std_logic; --! Start of corner point t2 during hysteresis control of master 
-			dk_factor_i		: in signed(DATAWIDTH_G-1 downto 0); --!  factor with 12 additional fractional bits 
+			dk_factor_i		: in signed(DATAWIDTH_G-1 downto 0); --!  factor with 12 additional fractional bits
+			Delta_y_i		: in signed(31 downto 0); --!  DELAY_CONSTANT_SS/(V1-Vc)
+			Delta_y_fall_i		: in signed(31 downto 0); --!  DELAY_CONSTANT_SS/(V2+Vc)
 			dk_factor_ready_i: in std_logic; --! new dk_factor available 
 			deltaH_ready_o	: out std_logic; --! calculation of deltaH finished 
+			deltaT_o 		: out signed(DATAWIDTH_G-1 downto 0); --! signed output value dH
+			deltaT_fall_o 		: out signed(DATAWIDTH_G-1 downto 0); --! signed output value dH 
 			deltaH_o 		: out signed(DATAWIDTH_G-1 downto 0) --! signed output value dH 
 			);		
 end component;
@@ -141,6 +161,11 @@ signal s2ms1_s,	s2ms1_next_s: signed(DATAWIDTH_G downto 0) := (others => '0'); -
 
 signal y10_s : std_logic_vector( 2*DATAWIDTH_G+1 downto 0) := (others => '0'); --! output of multiplier: y10_s = s1_s * s2_s 
 signal y11_s : std_logic_vector(32 downto 0) := (others => '0'); --! output of multiplier for scaling: y11_s = SCALE_T_L_C * s2ms1_s 
+signal Delta_yRise2_Div_s : std_logic_vector(31 downto 0) := (others => '0'); --! output of DELAY_CONSTANT_SS/(V1-Vc)
+signal Delta_yRise2_Div_fall_s : std_logic_vector(31 downto 0) := (others => '0'); --! output of DELAY_CONSTANT_SS/(V2+Vc)
+
+signal x_Rise_s, x_Rise_next_s : signed(31 downto 0) := (others => '0'); --! output of (V1-Vc)
+signal x_Rise_fall_s, x_Rise_fall_next_s : signed(31 downto 0) := (others => '0'); --! output of (V2+Vc)
 
 signal x20_s, x20_next_s : std_logic_vector(2*DATAWIDTH_G+1 + 12 downto 0) := (others => '0'); --! x20_s =  (s1_s * s2_s) << 12
 signal x21_s, x21_next_s : std_logic_vector(32 downto 0) := (others => '0'); --! x21_s = SCALE_T_L_C * s2ms1_s 
@@ -172,6 +197,8 @@ begin
 			s2ms1_s     <= (others => '0');
 			x20_s		<= (others => '0');
 			x21_s       <= (others => '0');
+            x_Rise_s       <= (others => '0');
+            x_Rise_fall_s       <= (others => '0');
 			dk_factor_s <= (others => '0');
 			y2_s		<= (others => '0');
 			dk_factor_ready_s <= '0'; 
@@ -180,7 +207,9 @@ begin
 			phase_shift_en_vec_s <= phase_shift_en_vec_s(0) & phase_shift_en_i; 
 			dH_state_s 	<= dH_state_next_s; 
 			dH_cnt_s 	<= dH_cnt_next_s; 
-			s1_s 		<= s1_next_s; 
+			s1_s 		<= s1_next_s;
+            x_Rise_s    <= x_Rise_next_s;
+            x_Rise_fall_s    <= x_Rise_fall_next_s;
 			s2_s        <= s2_next_s; 
 			s2ms1_s     <= s2ms1_next_s; 
 			x20_s		<= x20_next_s; 
@@ -196,7 +225,7 @@ begin
 	--! @details Statemachine leaves IDLE 
 	--! @details The inputs of the operators (x_) are updated with the outputs of the operators (y_) as soon
 	--! @details as the time for operation is over. 
-	dH_proc_logic: process(vbush_i,vbusl_i,vc_i,dH_state_s, dH_cnt_s,y10_s,y2_s,y11_s,phase_shift_en_vec_s, dk_factor_s,s1_s,s2_s,s2ms1_s,x20_s,x21_s,dk_factor_ready_s,dk_superv_s) 
+	dH_proc_logic: process(vbush_i,vbusl_i,vc_i,dH_state_s, dH_cnt_s,y10_s,y2_s,y11_s,phase_shift_en_vec_s, dk_factor_s,s1_s,s2_s,s2ms1_s,x20_s,x21_s,dk_factor_ready_s,dk_superv_s, x_Rise_s) 
 	begin
 		-- default assignments for avoiding latches 
 		dH_state_next_s <= dH_state_s; 
@@ -205,7 +234,9 @@ begin
 		s2_next_s	 	<= s2_s; 
 		s2ms1_next_s 	<= s2ms1_s; 
 		x20_next_s		<= x20_s; 
-		x21_next_s		<= x21_s; 
+		x21_next_s		<= x21_s;
+        x_Rise_next_s   <= x_Rise_s;
+        x_Rise_fall_next_s   <= x_Rise_fall_s;
 		dk_factor_next_s<= dk_factor_s; 
 		dk_factor_ready_next_s <= dk_factor_ready_s; 
 		
@@ -214,7 +245,9 @@ begin
 				dk_factor_ready_next_s <= '0'; 
 				if phase_shift_en_vec_s = "01" then -- start new calculation 
 					dH_state_next_s <= MULT_S1S2; 
-					s1_next_s 	 <= resize(vbush_i,DATAWIDTH_G+1) - resize(vc_i,DATAWIDTH_G+1); 
+					s1_next_s 	 <= resize(vbush_i,DATAWIDTH_G+1) - resize(vc_i,DATAWIDTH_G+1);
+                    x_Rise_next_s <= resize(vbush_i,32) - resize(vc_i,32);
+                    x_Rise_fall_next_s <= resize(vbusl_i,32) + resize(vc_i,32);
 					s2_next_s	 <= -resize(vbusl_i,DATAWIDTH_G+1)-resize(vc_i,DATAWIDTH_G+1); 
 					s2ms1_next_s <= -resize(vbusl_i,DATAWIDTH_G+1) - resize(vbush_i,DATAWIDTH_G+1); 
 					dH_cnt_next_s <= 0; 
@@ -294,7 +327,24 @@ begin
 		quotient	=> y2_next_s,
 		remain		=> open
 	);
-		
+	
+	RiseDiv_inst: my_integer_divider
+	port map(
+		clock		=> clk_i,
+		denom		=> std_logic_vector(x_Rise_s), 
+		numer		=> std_logic_vector(to_signed(DELAY_COMP_CONSTANT_SS, 32)), 
+		quotient	=> Delta_yRise2_Div_s,
+		remain		=> open
+	);
+
+	FallDiv_inst: my_integer_divider
+	port map(
+		clock		=> clk_i,
+		denom		=> std_logic_vector(x_Rise_fall_s), 
+		numer		=> std_logic_vector(to_signed(DELAY_COMP_CONSTANT_SS, 32)), 
+		quotient	=> Delta_yRise2_Div_fall_s,
+		remain		=> open
+	);
 	
 	--generate for loop dk_mult for every slave  
 	DK_MULTIPLIER_LOOP: 
@@ -313,9 +363,13 @@ begin
 				hyst_i				=> hyst_i, 
 				t2_start_sl_i		=> hyst_t2_vec_i(I),	
 				t2_start_ma_i		=> hyst_t2_vec_i(0), 
-				dk_factor_i			=> dk_factor_s, 
+				dk_factor_i			=> dk_factor_s,
+                Delta_y_i			=> signed(Delta_yRise2_Div_s),
+                Delta_y_fall_i		=> signed(Delta_yRise2_Div_fall_s), 
 				dk_factor_ready_i	=> dk_factor_ready_s,
 				deltaH_ready_o		=> deltaH_ready_o(I),
+                deltaT_o 			=> deltaT_o(I),
+                deltaT_fall_o 		=> deltaT_fall_o(I),
 				deltaH_o 			=> deltaH_o(I)
 				); 
 	
